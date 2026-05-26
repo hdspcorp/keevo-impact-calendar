@@ -75,11 +75,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Calendário de Gestão de Impactos 2026 · Keevo" },
       { name: "description", content: "Visão estratégica para antecipação e preparação dos principais temas do ano." },
       { name: "author", content: "Keevo" },
-      { property: "og:title", content: "Calendário de Gestão de Impactos 2026" },
+      { property: "og:title", content: "Calendário de Gestão de Impactos 2026 · Keevo" },
       { property: "og:description", content: "Visão estratégica para antecipação e preparação dos principais temas do ano." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Calendário de Gestão de Impactos 2026 · Keevo" },
+      { name: "twitter:description", content: "Visão estratégica para antecipação e preparação dos principais temas do ano." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3f685f6a-135a-4159-bc7a-430318ce1556/id-preview-a2fbcb9e--bf9aaf2b-01ae-4ef2-82f1-a76e0aa83887.lovable.app-1779823321852.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3f685f6a-135a-4159-bc7a-430318ce1556/id-preview-a2fbcb9e--bf9aaf2b-01ae-4ef2-82f1-a76e0aa83887.lovable.app-1779823321852.png" },
     ],
     links: [
       {
