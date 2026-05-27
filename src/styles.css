@@ -62,9 +62,9 @@
 }
 
 :root {
-  /* Keevo brand: purple primary, orange accent */
+  /* Keevo brand: purple primary, orange accent. Soft lavender background. */
   --radius: 0.875rem;
-  --background: oklch(0.991 0.003 264);
+  --background: oklch(0.985 0.008 295);
   --foreground: oklch(0.22 0.03 280);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.22 0.03 280);
@@ -72,16 +72,16 @@
   --popover-foreground: oklch(0.22 0.03 280);
   --primary: oklch(0.46 0.22 295);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.97 0.012 280);
+  --secondary: oklch(0.965 0.018 290);
   --secondary-foreground: oklch(0.32 0.05 290);
-  --muted: oklch(0.97 0.008 280);
+  --muted: oklch(0.965 0.012 285);
   --muted-foreground: oklch(0.52 0.025 270);
-  --accent: oklch(0.74 0.18 55);
+  --accent: oklch(0.72 0.18 55);
   --accent-foreground: oklch(0.99 0 0);
   --destructive: oklch(0.6 0.22 25);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.93 0.008 280);
-  --input: oklch(0.93 0.008 280);
+  --border: oklch(0.92 0.014 290);
+  --input: oklch(0.92 0.014 290);
   --ring: oklch(0.46 0.22 295);
   --chart-1: oklch(0.46 0.22 295);
   --chart-2: oklch(0.74 0.18 55);
@@ -139,7 +139,19 @@
   }
 
   body {
-    background-color: var(--color-background);
     color: var(--color-foreground);
+    background-color: var(--color-background);
+    background-image:
+      radial-gradient(
+        1100px 600px at 0% -10%,
+        color-mix(in oklab, var(--primary) 8%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        900px 500px at 110% 0%,
+        color-mix(in oklab, var(--accent) 6%, transparent),
+        transparent 55%
+      );
+    background-attachment: fixed;
   }
 }

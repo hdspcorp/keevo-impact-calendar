@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   AREAS,
+  AREA_ORDEM,
   AreaSlug,
   ChecklistTemplate,
   DEFAULT_TEMPLATES,
@@ -12,23 +13,14 @@ import {
   StatusArea,
   Acao,
   HistoricoEntry,
+  MOCK_USERS,
 } from "./domain";
 
-// ---- Auth (mock) ----
+// ---- Auth ----
 export type Session =
-  | { kind: "admin"; nome: string }
-  | { kind: "area"; nome: string; area: AreaSlug }
+  | { kind: "admin"; nome: string; email: string }
+  | { kind: "area"; nome: string; email: string; area: AreaSlug }
   | null;
-
-// Mock credenciais: senha = área (ex: "nexus"). Admin: admin / admin
-const MOCK_USERS: { user: string; pass: string; session: Exclude<Session, null> }[] = [
-  { user: "admin", pass: "admin", session: { kind: "admin", nome: "Administrador" } },
-  ...AREAS.map((a) => ({
-    user: a.slug,
-    pass: a.slug,
-    session: { kind: "area" as const, nome: `Usuário ${a.nome}`, area: a.slug },
-  })),
-];
 
 type State = {
   obrigacoes: Obrigacao[];
@@ -37,22 +29,25 @@ type State = {
 };
 
 type Ctx = State & {
-  // auth
-  login: (user: string, pass: string) => Session;
+  login: (userOrEmail: string, pass: string) => Session;
   logout: () => void;
   canEditArea: (area: AreaSlug) => boolean;
-  // obrigacoes
+
   addObrigacao: (data: NewObrigacaoInput) => Obrigacao;
-  updateAreaStatus: (
+  updateAreaMeta: (
     obrigacaoId: string,
     area: AreaSlug,
-    patch: { status?: StatusArea; observacoes?: string; responsavel?: string }
+    patch: { observacoes?: string; responsavel?: string; prazo?: string }
   ) => void;
-  toggleAcao: (obrigacaoId: string, acaoId: string) => void;
+  toggleAcaoSelecionada: (obrigacaoId: string, acaoId: string) => void;
   addCustomAcao: (obrigacaoId: string, area: AreaSlug, nome: string) => void;
   removeAcao: (obrigacaoId: string, acaoId: string) => void;
+  promoteCustomToTemplate: (obrigacaoId: string, acaoId: string) => void;
+  concluirArea: (obrigacaoId: string, area: AreaSlug) => boolean;
+  marcarSemAcao: (obrigacaoId: string, area: AreaSlug) => void;
+  reabrirArea: (obrigacaoId: string, area: AreaSlug) => void;
   toggleAcaoNecessaria: (obrigacaoId: string) => void;
-  // templates
+
   addTemplate: (t: Omit<ChecklistTemplate, "id" | "ordem">) => void;
   updateTemplate: (id: string, patch: Partial<ChecklistTemplate>) => void;
   removeTemplate: (id: string) => void;
@@ -72,8 +67,7 @@ export type NewObrigacaoInput = {
 };
 
 const StoreCtx = React.createContext<Ctx | null>(null);
-
-const LS_KEY = "keevo-impactos-2026-v1";
+const LS_KEY = "keevo-impactos-2026-v2";
 
 function loadInitial(): State {
   if (typeof window === "undefined") {
@@ -86,6 +80,26 @@ function loadInitial(): State {
   return { obrigacoes: SEED_OBRIGACOES, templates: DEFAULT_TEMPLATES, session: null };
 }
 
+function makeHist(
+  area: AreaSlug,
+  session: Session,
+  tipo: HistoricoEntry["tipo"],
+  descricao: string
+): HistoricoEntry {
+  return {
+    id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    area,
+    usuario: session?.nome ?? "Sistema",
+    tipo,
+    descricao,
+    data: new Date().toISOString(),
+  };
+}
+
+function pushHist(o: Obrigacao, entry: HistoricoEntry): Obrigacao {
+  return { ...o, historico: [entry, ...o.historico].slice(0, 60) };
+}
+
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<State>(() => loadInitial());
 
@@ -95,32 +109,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, [state]);
 
-  const addHistorico = (
-    o: Obrigacao,
-    area: AreaSlug,
-    descricao: string,
-    session: Session
-  ): Obrigacao => {
-    const entry: HistoricoEntry = {
-      id: `h-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      area,
-      usuario: session?.nome ?? "Sistema",
-      descricao,
-      data: new Date().toISOString(),
-    };
-    return { ...o, historico: [entry, ...o.historico].slice(0, 30) };
-  };
-
   const ctx: Ctx = {
     ...state,
 
-    login(user, pass) {
+    login(userOrEmail, pass) {
+      const q = userOrEmail.toLowerCase().trim();
       const found = MOCK_USERS.find(
-        (u) => u.user.toLowerCase() === user.toLowerCase() && u.pass === pass
+        (u) =>
+          (u.email.toLowerCase() === q ||
+            u.email.split("@")[0].toLowerCase() === q) &&
+          u.pass === pass
       );
       if (!found) return null;
-      setState((s) => ({ ...s, session: found.session }));
-      return found.session;
+      const session: Session =
+        found.kind === "admin"
+          ? { kind: "admin", nome: found.nome, email: found.email }
+          : { kind: "area", nome: found.nome, email: found.email, area: found.area! };
+      setState((s) => ({ ...s, session }));
+      return session;
     },
     logout() {
       setState((s) => ({ ...s, session: null }));
@@ -141,15 +147,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         acoes: acoesFromTemplates(state.templates, data.acaoNecessaria),
         historico: [],
       };
-      o.areas.nexus = {
-        ...o.areas.nexus,
-        responsavel: "NEXUS",
-      };
-      setState((s) => ({ ...s, obrigacoes: [o, ...s.obrigacoes] }));
-      return o;
+      o.areas.nexus = { ...o.areas.nexus, responsavel: "NEXUS" };
+      const session = state.session;
+      const hist = makeHist("nexus", session, "criacao", `Obrigação "${data.nome}" criada.`);
+      const final = pushHist(o, hist);
+      setState((s) => ({ ...s, obrigacoes: [final, ...s.obrigacoes] }));
+      return final;
     },
 
-    updateAreaStatus(obrigacaoId, area, patch) {
+    updateAreaMeta(obrigacaoId, area, patch) {
       setState((s) => ({
         ...s,
         obrigacoes: s.obrigacoes.map((o) => {
@@ -161,18 +167,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ultimaAtualizacao: new Date().toISOString(),
             atualizadoPor: s.session?.nome ?? "Sistema",
           };
-          const updated = { ...o, areas: { ...o.areas, [area]: next } };
-          return addHistorico(
-            updated,
-            area,
-            patch.status ? `Status atualizado para "${patch.status}"` : "Informações atualizadas",
-            s.session
-          );
+          return { ...o, areas: { ...o.areas, [area]: next } };
         }),
       }));
     },
 
-    toggleAcao(obrigacaoId, acaoId) {
+    toggleAcaoSelecionada(obrigacaoId, acaoId) {
       setState((s) => ({
         ...s,
         obrigacoes: s.obrigacoes.map((o) => {
@@ -180,25 +180,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           let toggled: Acao | undefined;
           const acoes = o.acoes.map((a) => {
             if (a.id !== acaoId) return a;
-            toggled = { ...a, concluida: !a.concluida };
-            return toggled;
+            const next: Acao = { ...a, selecionada: !a.selecionada };
+            toggled = next;
+            return next;
           });
-          let updated = { ...o, acoes };
-          if (toggled) {
-            updated = addHistorico(
-              updated,
-              toggled.area,
-              `${toggled.concluida ? "Concluiu" : "Reabriu"} ação: ${toggled.nome}`,
-              s.session
-            );
-            // also update area's lastUpdate
-            const a = toggled.area;
-            updated.areas[a] = {
-              ...updated.areas[a],
-              ultimaAtualizacao: new Date().toISOString(),
-              atualizadoPor: s.session?.nome ?? "Sistema",
-            };
-          }
+          if (!toggled) return o;
+          const area = toggled.area;
+          const now = new Date().toISOString();
+          let updated: Obrigacao = {
+            ...o,
+            acoes,
+            areas: {
+              ...o.areas,
+              [area]: {
+                ...o.areas[area],
+                ultimaAtualizacao: now,
+                atualizadoPor: s.session?.nome ?? "Sistema",
+                // Se a área estava aguardando, passa a "Em análise" (rascunho)
+                status:
+                  o.areas[area].status === "Aguardando avaliação" ||
+                  o.areas[area].status === "Reaberta"
+                    ? "Em análise"
+                    : o.areas[area].status,
+                // Se ficou sem nenhuma seleção e estava em "Ações selecionadas", volta a "Em análise"
+              },
+            },
+          };
+          updated = pushHist(
+            updated,
+            makeHist(
+              area,
+              s.session,
+              toggled.selecionada ? "acao-marcada" : "acao-desmarcada",
+              `${toggled.selecionada ? "Marcou" : "Desmarcou"} a ação "${toggled.nome}"`
+            )
+          );
           return updated;
         }),
       }));
@@ -214,10 +230,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             area,
             nome,
             origem: "custom",
-            concluida: false,
+            selecionada: true, // ação customizada já é considerada selecionada
           };
-          let updated = { ...o, acoes: [...o.acoes, nova] };
-          updated = addHistorico(updated, area, `Adicionou ação customizada: ${nome}`, s.session);
+          const now = new Date().toISOString();
+          let updated: Obrigacao = {
+            ...o,
+            acoes: [...o.acoes, nova],
+            areas: {
+              ...o.areas,
+              [area]: {
+                ...o.areas[area],
+                ultimaAtualizacao: now,
+                atualizadoPor: s.session?.nome ?? "Sistema",
+                status:
+                  o.areas[area].status === "Aguardando avaliação" ||
+                  o.areas[area].status === "Reaberta"
+                    ? "Em análise"
+                    : o.areas[area].status,
+              },
+            },
+          };
+          updated = pushHist(
+            updated,
+            makeHist(area, s.session, "acao-custom-add", `Ação customizada adicionada: "${nome}"`)
+          );
           return updated;
         }),
       }));
@@ -229,10 +265,150 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         obrigacoes: s.obrigacoes.map((o) => {
           if (o.id !== obrigacaoId) return o;
           const acao = o.acoes.find((a) => a.id === acaoId);
-          let updated = { ...o, acoes: o.acoes.filter((a) => a.id !== acaoId) };
-          if (acao)
-            updated = addHistorico(updated, acao.area, `Removeu ação: ${acao.nome}`, s.session);
+          if (!acao || acao.origem !== "custom") return o;
+          let updated: Obrigacao = {
+            ...o,
+            acoes: o.acoes.filter((a) => a.id !== acaoId),
+          };
+          updated = pushHist(
+            updated,
+            makeHist(
+              acao.area,
+              s.session,
+              "acao-custom-remove",
+              `Ação customizada removida: "${acao.nome}"`
+            )
+          );
           return updated;
+        }),
+      }));
+    },
+
+    promoteCustomToTemplate(obrigacaoId, acaoId) {
+      const session = state.session;
+      if (session?.kind !== "admin") return;
+      const o = state.obrigacoes.find((x) => x.id === obrigacaoId);
+      const acao = o?.acoes.find((a) => a.id === acaoId);
+      if (!acao || acao.origem !== "custom") return;
+      setState((s) => {
+        const ordem = s.templates.filter((t) => t.area === acao.area).length;
+        const novo: ChecklistTemplate = {
+          id: `tpl-${Date.now()}`,
+          area: acao.area,
+          nome: acao.nome,
+          ordem,
+          ativo: true,
+          obrigatorio: false,
+          somenteAcaoNecessaria: false,
+        };
+        return { ...s, templates: [...s.templates, novo] };
+      });
+    },
+
+    concluirArea(obrigacaoId, area) {
+      const o = state.obrigacoes.find((x) => x.id === obrigacaoId);
+      if (!o) return false;
+      const selecionadas = o.acoes.filter((a) => a.area === area && a.selecionada);
+      if (selecionadas.length === 0) return false;
+      setState((s) => ({
+        ...s,
+        obrigacoes: s.obrigacoes.map((x) => {
+          if (x.id !== obrigacaoId) return x;
+          const now = new Date().toISOString();
+          let upd: Obrigacao = {
+            ...x,
+            areas: {
+              ...x.areas,
+              [area]: {
+                ...x.areas[area],
+                status: "Concluída",
+                semAcaoNecessaria: false,
+                concluidaEm: now,
+                ultimaAtualizacao: now,
+                atualizadoPor: s.session?.nome ?? "Sistema",
+              },
+            },
+          };
+          const nomes = selecionadas.map((a) => a.nome).join(", ");
+          upd = pushHist(
+            upd,
+            makeHist(
+              area,
+              s.session,
+              "pronto",
+              `Avaliação concluída — ações selecionadas: ${nomes}.`
+            )
+          );
+          return upd;
+        }),
+      }));
+      return true;
+    },
+
+    marcarSemAcao(obrigacaoId, area) {
+      setState((s) => ({
+        ...s,
+        obrigacoes: s.obrigacoes.map((x) => {
+          if (x.id !== obrigacaoId) return x;
+          const now = new Date().toISOString();
+          // Desmarca todas as ações da área
+          const acoes = x.acoes.map((a) =>
+            a.area === area && a.origem === "template" ? { ...a, selecionada: false } : a
+          );
+          let upd: Obrigacao = {
+            ...x,
+            acoes,
+            areas: {
+              ...x.areas,
+              [area]: {
+                ...x.areas[area],
+                status: "Sem ação necessária",
+                semAcaoNecessaria: true,
+                concluidaEm: now,
+                ultimaAtualizacao: now,
+                atualizadoPor: s.session?.nome ?? "Sistema",
+              },
+            },
+          };
+          upd = pushHist(
+            upd,
+            makeHist(
+              area,
+              s.session,
+              "sem-acao",
+              "Avaliou o impacto e declarou que nenhuma ação será necessária."
+            )
+          );
+          return upd;
+        }),
+      }));
+    },
+
+    reabrirArea(obrigacaoId, area) {
+      setState((s) => ({
+        ...s,
+        obrigacoes: s.obrigacoes.map((x) => {
+          if (x.id !== obrigacaoId) return x;
+          const now = new Date().toISOString();
+          let upd: Obrigacao = {
+            ...x,
+            areas: {
+              ...x.areas,
+              [area]: {
+                ...x.areas[area],
+                status: "Reaberta",
+                semAcaoNecessaria: false,
+                concluidaEm: undefined,
+                ultimaAtualizacao: now,
+                atualizadoPor: s.session?.nome ?? "Sistema",
+              },
+            },
+          };
+          upd = pushHist(
+            upd,
+            makeHist(area, s.session, "reabertura", "Avaliação reaberta para edição.")
+          );
+          return upd;
         }),
       }));
     },
@@ -243,14 +419,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         obrigacoes: s.obrigacoes.map((o) => {
           if (o.id !== obrigacaoId) return o;
           const v = !o.acaoNecessaria;
-          let updated = { ...o, acaoNecessaria: v };
-          updated = addHistorico(
-            updated,
-            "nexus",
-            v ? "NEXUS marcou como Ação necessária" : "NEXUS removeu marcação de Ação necessária",
-            s.session
+          let upd: Obrigacao = { ...o, acaoNecessaria: v };
+          upd = pushHist(
+            upd,
+            makeHist(
+              "nexus",
+              s.session,
+              "nexus-acao-necessaria",
+              v
+                ? "NEXUS marcou o impacto como Ação necessária."
+                : "NEXUS removeu a marcação de Ação necessária."
+            )
           );
-          return updated;
+          return upd;
         }),
       }));
     },
@@ -301,13 +482,15 @@ export function useStore() {
   return c;
 }
 
-// Aggregations
+// ---------- Aggregations ----------
+export function isAreaAvaliada(o: Obrigacao, area: AreaSlug): boolean {
+  const st = o.areas[area].status;
+  return st === "Concluída" || st === "Sem ação necessária";
+}
+
 export function areaProgress(o: Obrigacao) {
   const total = AREAS.length;
-  const atualizadas = AREAS.filter((a) => {
-    const st = o.areas[a.slug].status;
-    return st === "Atualizada" || st === "Concluída";
-  }).length;
+  const atualizadas = AREAS.filter((a) => isAreaAvaliada(o, a.slug)).length;
   return { atualizadas, total, pct: Math.round((atualizadas / total) * 100) };
 }
 
@@ -320,11 +503,41 @@ export function ultimaAtualizacaoArea(o: Obrigacao): { area: AreaSlug; iso: stri
   return best;
 }
 
-export function pendenteCom(o: Obrigacao): AreaSlug | null {
-  const ordem: AreaSlug[] = ["nexus", "desenvolvimento", "conteudos", "marketing", "operacoes"];
-  for (const a of ordem) {
-    const st = o.areas[a].status;
-    if (st !== "Atualizada" && st !== "Concluída") return a;
+export function ultimaAreaConcluida(o: Obrigacao): { area: AreaSlug; iso: string } | null {
+  let best: { area: AreaSlug; iso: string } | null = null;
+  for (const a of AREAS) {
+    const c = o.areas[a.slug].concluidaEm;
+    if (c && (!best || c > best.iso)) best = { area: a.slug, iso: c };
+  }
+  return best;
+}
+
+export function proximaPendente(o: Obrigacao): AreaSlug | null {
+  for (const a of AREA_ORDEM) {
+    if (!isAreaAvaliada(o, a)) return a;
   }
   return null;
+}
+
+// Compat alias
+export const pendenteCom = proximaPendente;
+
+export function acoesSelecionadasDaArea(o: Obrigacao, area: AreaSlug): Acao[] {
+  return o.acoes.filter((a) => a.area === area && a.selecionada);
+}
+
+export function areaStatusResumo(o: Obrigacao, area: AreaSlug): string {
+  const st = o.areas[area].status;
+  if (st === "Concluída") {
+    const n = acoesSelecionadasDaArea(o, area).length;
+    return `${n} ação(ões) selecionadas`;
+  }
+  if (st === "Sem ação necessária") return "Sem ação necessária";
+  if (st === "Em análise") {
+    const n = acoesSelecionadasDaArea(o, area).length;
+    return n > 0 ? `${n} ação(ões) marcadas` : "Em análise";
+  }
+  if (st === "Reaberta") return "Reaberta para edição";
+  if (st === "Atrasada") return "Atrasada";
+  return "Aguardando avaliação";
 }

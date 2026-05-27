@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useStore } from "@/lib/store";
 import { areaNome } from "@/lib/domain";
 import { AreaLoginDialog } from "./AreaLoginDialog";
+import { KeevoLogo } from "./KeevoLogo";
 
 export function Header() {
   const { session, logout } = useStore();
@@ -21,22 +22,17 @@ export function Header() {
   }, [session]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-md">
+    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-6 px-6 py-4">
         <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <span className="text-base font-bold tracking-tight">K</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold tracking-wide text-primary">Keevo</span>
-              <span className="text-xs text-muted-foreground">/</span>
-              <h1 className="text-base font-semibold text-foreground sm:text-lg">
-                Calendário de Gestão de Impactos 2026
-              </h1>
-            </div>
-            <p className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
-              Visão estratégica para antecipação e preparação dos principais temas do ano.
+          <KeevoLogo size={28} />
+          <div className="hidden h-8 w-px bg-border sm:block" />
+          <div className="hidden sm:block">
+            <h1 className="text-base font-semibold text-foreground sm:text-[15px]">
+              Calendário de Gestão de Impactos 2026
+            </h1>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Visão estratégica para antecipação dos principais temas do ano.
             </p>
           </div>
         </div>

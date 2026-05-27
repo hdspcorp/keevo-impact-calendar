@@ -11,10 +11,27 @@ export const AREAS: { slug: AreaSlug; nome: string; cor: string }[] = [
   { slug: "operacoes", nome: "Operações / Suporte", cor: "oklch(0.55 0.14 0)" },
 ];
 
+export const AREA_ORDEM: AreaSlug[] = [
+  "nexus",
+  "desenvolvimento",
+  "conteudos",
+  "marketing",
+  "operacoes",
+];
+
 export const areaNome = (s: AreaSlug) => AREAS.find((a) => a.slug === s)!.nome;
 
 export type StatusGeral = "Não iniciada" | "Em andamento" | "Atualizada" | "Pendente" | "Concluída";
-export type StatusArea = StatusGeral | "Atrasada";
+
+// Status específicos por área (semântica nova)
+export type StatusArea =
+  | "Aguardando avaliação"
+  | "Em análise"
+  | "Ações selecionadas"
+  | "Sem ação necessária"
+  | "Concluída"
+  | "Reaberta"
+  | "Atrasada";
 
 export const STATUS_GERAL: StatusGeral[] = [
   "Não iniciada",
@@ -22,6 +39,16 @@ export const STATUS_GERAL: StatusGeral[] = [
   "Atualizada",
   "Pendente",
   "Concluída",
+];
+
+export const STATUS_AREA: StatusArea[] = [
+  "Aguardando avaliação",
+  "Em análise",
+  "Ações selecionadas",
+  "Sem ação necessária",
+  "Concluída",
+  "Reaberta",
+  "Atrasada",
 ];
 
 export type Periodicidade = "Mensal" | "Anual" | "Eventual";
@@ -37,12 +64,14 @@ export type ChecklistTemplate = {
   somenteAcaoNecessaria: boolean;
 };
 
+// Ação: agora representa um item disponível na área. `selecionada` indica
+// se a área considera essa ação necessária para aquele impacto.
 export type Acao = {
   id: string;
   area: AreaSlug;
   nome: string;
   origem: "template" | "custom";
-  concluida: boolean;
+  selecionada: boolean;
 };
 
 export type AreaStatus = {
@@ -50,7 +79,10 @@ export type AreaStatus = {
   status: StatusArea;
   observacoes: string;
   responsavel: string;
-  ultimaAtualizacao?: string; // ISO
+  prazo?: string;
+  semAcaoNecessaria?: boolean; // true se a área declarou "Não será necessária nenhuma ação"
+  concluidaEm?: string; // ISO – preenchido ao clicar PRONTO ou "Sem ação"
+  ultimaAtualizacao?: string;
   atualizadoPor?: string;
 };
 
@@ -58,8 +90,20 @@ export type HistoricoEntry = {
   id: string;
   area: AreaSlug;
   usuario: string;
+  tipo:
+    | "criacao"
+    | "pronto"
+    | "sem-acao"
+    | "reabertura"
+    | "acao-marcada"
+    | "acao-desmarcada"
+    | "acao-custom-add"
+    | "acao-custom-remove"
+    | "obs"
+    | "nexus-acao-necessaria"
+    | "info";
   descricao: string;
-  data: string; // ISO
+  data: string;
 };
 
 export type Obrigacao = {
@@ -67,7 +111,7 @@ export type Obrigacao = {
   nome: string;
   tipo: Periodicidade;
   linhaModulo: string;
-  dataVencimento: string; // ISO yyyy-mm-dd
+  dataVencimento: string;
   criticidade: Criticidade;
   impacto: string;
   resumo: string;
@@ -140,7 +184,7 @@ export const emptyAreas = (): Record<AreaSlug, AreaStatus> =>
     (acc, a) => {
       acc[a.slug] = {
         area: a.slug,
-        status: "Não iniciada",
+        status: "Aguardando avaliação",
         observacoes: "",
         responsavel: "",
       };
@@ -149,6 +193,8 @@ export const emptyAreas = (): Record<AreaSlug, AreaStatus> =>
     {} as Record<AreaSlug, AreaStatus>
   );
 
+// Carrega ações padrão da área a partir dos templates, todas DESmarcadas.
+// Cada ação só será marcada se a própria área julgar necessária.
 export const acoesFromTemplates = (
   templates: ChecklistTemplate[],
   acaoNecessaria: boolean
@@ -161,15 +207,19 @@ export const acoesFromTemplates = (
       area: t.area,
       nome: t.nome,
       origem: "template",
-      concluida: false,
+      selecionada: false,
     }));
 
 // ---------- SEED OBRIGAÇÕES ----------
 const now = new Date().toISOString();
+const yest = new Date(Date.now() - 86400000).toISOString();
 
-const mk = (o: Omit<Obrigacao, "areas" | "acoes" | "historico"> & {
-  progresso?: Partial<Record<AreaSlug, Partial<AreaStatus>>>;
-}): Obrigacao => {
+const mk = (
+  o: Omit<Obrigacao, "areas" | "acoes" | "historico"> & {
+    progresso?: Partial<Record<AreaSlug, Partial<AreaStatus>>>;
+    selecionadas?: Partial<Record<AreaSlug, string[]>>;
+  }
+): Obrigacao => {
   const areas = emptyAreas();
   if (o.progresso) {
     for (const k of Object.keys(o.progresso) as AreaSlug[]) {
@@ -177,6 +227,14 @@ const mk = (o: Omit<Obrigacao, "areas" | "acoes" | "historico"> & {
     }
   }
   const acoes = acoesFromTemplates(DEFAULT_TEMPLATES, o.acaoNecessaria);
+  if (o.selecionadas) {
+    for (const area of Object.keys(o.selecionadas) as AreaSlug[]) {
+      const nomes = o.selecionadas[area]!;
+      for (const ac of acoes) {
+        if (ac.area === area && nomes.includes(ac.nome)) ac.selecionada = true;
+      }
+    }
+  }
   return { ...o, areas, acoes, historico: [] };
 };
 
@@ -194,9 +252,20 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     statusGeral: "Em andamento",
     acaoNecessaria: true,
     progresso: {
-      nexus: { status: "Atualizada", ultimaAtualizacao: now, atualizadoPor: "Ana (NEXUS)" },
-      conteudos: { status: "Atualizada", ultimaAtualizacao: now, atualizadoPor: "Bruno" },
-      marketing: { status: "Pendente" },
+      nexus: {
+        status: "Concluída",
+        ultimaAtualizacao: yest,
+        atualizadoPor: "Ana (NEXUS)",
+        concluidaEm: yest,
+      },
+      desenvolvimento: {
+        status: "Em análise",
+        ultimaAtualizacao: now,
+        atualizadoPor: "Carlos (Dev)",
+      },
+    },
+    selecionadas: {
+      nexus: ["Comunicado", "Conteúdo técnico"],
     },
   }),
   mk({
@@ -211,7 +280,15 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     statusGeral: "Não iniciada",
     acaoNecessaria: true,
     progresso: {
-      nexus: { status: "Atualizada", ultimaAtualizacao: now, atualizadoPor: "Ana (NEXUS)" },
+      nexus: {
+        status: "Concluída",
+        ultimaAtualizacao: now,
+        atualizadoPor: "Ana (NEXUS)",
+        concluidaEm: now,
+      },
+    },
+    selecionadas: {
+      nexus: ["Comunicado", "Treinamento Interno"],
     },
   }),
   mk({
@@ -240,8 +317,29 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     statusGeral: "Em andamento",
     acaoNecessaria: true,
     progresso: {
-      nexus: { status: "Atualizada", ultimaAtualizacao: now, atualizadoPor: "Ana (NEXUS)" },
-      desenvolvimento: { status: "Em andamento", ultimaAtualizacao: now, atualizadoPor: "Carlos" },
+      nexus: {
+        status: "Concluída",
+        ultimaAtualizacao: yest,
+        atualizadoPor: "Ana (NEXUS)",
+        concluidaEm: yest,
+      },
+      desenvolvimento: {
+        status: "Concluída",
+        ultimaAtualizacao: now,
+        atualizadoPor: "Carlos (Dev)",
+        concluidaEm: now,
+      },
+      conteudos: {
+        status: "Sem ação necessária",
+        ultimaAtualizacao: now,
+        atualizadoPor: "Bruno (Conteúdos)",
+        semAcaoNecessaria: true,
+        concluidaEm: now,
+      },
+    },
+    selecionadas: {
+      nexus: ["Treinamento Interno", "Comunicado"],
+      desenvolvimento: ["Validar viabilidade", "Atualizar status técnico"],
     },
   }),
   mk({
@@ -258,8 +356,20 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     statusGeral: "Pendente",
     acaoNecessaria: true,
     progresso: {
-      nexus: { status: "Atualizada", ultimaAtualizacao: now, atualizadoPor: "Ana (NEXUS)" },
-      conteudos: { status: "Em andamento", ultimaAtualizacao: now, atualizadoPor: "Bruno" },
+      nexus: {
+        status: "Concluída",
+        ultimaAtualizacao: yest,
+        atualizadoPor: "Ana (NEXUS)",
+        concluidaEm: yest,
+      },
+      desenvolvimento: {
+        status: "Em análise",
+        ultimaAtualizacao: now,
+        atualizadoPor: "Carlos (Dev)",
+      },
+    },
+    selecionadas: {
+      nexus: ["Keevo Live", "Treinamento Interno", "Comunicado", "Conteúdo técnico"],
     },
   }),
   mk({
@@ -303,4 +413,46 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
 export const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+// ---------- USUÁRIOS MOCK ----------
+export type MockUser = {
+  email: string;
+  pass: string;
+  nome: string;
+  kind: "admin" | "area";
+  area?: AreaSlug;
+};
+
+export const MOCK_USERS: MockUser[] = [
+  { email: "admin@keevo.com", pass: "admin", nome: "Administrador Keevo", kind: "admin" },
+  { email: "nexus@keevo.com", pass: "nexus", nome: "Ana (NEXUS)", kind: "area", area: "nexus" },
+  {
+    email: "desenvolvimento@keevo.com",
+    pass: "desenvolvimento",
+    nome: "Carlos (Desenvolvimento)",
+    kind: "area",
+    area: "desenvolvimento",
+  },
+  {
+    email: "conteudos@keevo.com",
+    pass: "conteudos",
+    nome: "Bruno (Conteúdos)",
+    kind: "area",
+    area: "conteudos",
+  },
+  {
+    email: "marketing@keevo.com",
+    pass: "marketing",
+    nome: "Diana (Marketing)",
+    kind: "area",
+    area: "marketing",
+  },
+  {
+    email: "operacoes@keevo.com",
+    pass: "operacoes",
+    nome: "Eduardo (Operações)",
+    kind: "area",
+    area: "operacoes",
+  },
 ];

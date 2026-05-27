@@ -1,7 +1,11 @@
 import * as React from "react";
-import { Star, CalendarDays, Layers } from "lucide-react";
-import { Obrigacao } from "@/lib/domain";
-import { areaProgress } from "@/lib/store";
+import { Star, CalendarDays, Layers, ArrowRight } from "lucide-react";
+import { Obrigacao, areaNome } from "@/lib/domain";
+import {
+  areaProgress,
+  proximaPendente,
+  ultimaAreaConcluida,
+} from "@/lib/store";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "./StatusBadge";
 import { cn } from "@/lib/utils";
@@ -22,6 +26,8 @@ export function ObrigacaoCard({
   const venc = new Date(o.dataVencimento + "T00:00:00");
   const daysLeft = Math.ceil((venc.getTime() - Date.now()) / 86400000);
   const danger = daysLeft <= 7 && o.statusGeral !== "Concluída";
+  const prox = proximaPendente(o);
+  const ult = ultimaAreaConcluida(o);
 
   return (
     <button
@@ -39,9 +45,9 @@ export function ObrigacaoCard({
         />
       )}
 
-      <div className="flex items-start justify-between gap-3 pr-6">
-        <h3 className="text-sm font-semibold leading-snug text-foreground">{o.nome}</h3>
-      </div>
+      <h3 className="pr-6 text-sm font-semibold leading-snug text-foreground">
+        {o.nome}
+      </h3>
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
@@ -69,12 +75,31 @@ export function ObrigacaoCard({
       <div className="mt-3">
         <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
           <span>
-            {prog.atualizadas}/{prog.total} áreas atualizadas
+            {prog.atualizadas}/{prog.total} áreas avaliadas
           </span>
           <span className="font-medium text-foreground">{prog.pct}%</span>
         </div>
         <Progress value={prog.pct} className="h-1.5" />
       </div>
+
+      {(prox || ult) && (
+        <div className="mt-2.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+          {prox ? (
+            <span className="inline-flex items-center gap-1 truncate">
+              <ArrowRight className="h-3 w-3 text-primary" />
+              próxima:{" "}
+              <span className="font-medium text-foreground">{areaNome(prox)}</span>
+            </span>
+          ) : (
+            <span className="text-emerald-600">Todas as áreas avaliadas</span>
+          )}
+          {ult && (
+            <span className="truncate text-right">
+              última: {areaNome(ult.area)}
+            </span>
+          )}
+        </div>
+      )}
     </button>
   );
 }
