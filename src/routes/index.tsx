@@ -7,11 +7,12 @@ import { Header } from "@/components/Header";
 import { SummaryCards } from "@/components/SummaryCards";
 import { Filters, DEFAULT_FILTERS, FilterValues } from "@/components/Filters";
 import { CalendarGrid } from "@/components/CalendarGrid";
-import { PendingPanel } from "@/components/PendingPanel";
+import { AreaProgressPanel } from "@/components/AreaProgressPanel";
 import { ImpactDetailDrawer } from "@/components/ImpactDetailDrawer";
 import { NewObrigacaoDrawer } from "@/components/NewObrigacaoDrawer";
 import { ManageTemplatesDrawer } from "@/components/ManageTemplatesDrawer";
 import { Obrigacao } from "@/lib/domain";
+import { isAreaAvaliada } from "@/lib/store";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/")({
@@ -46,22 +47,23 @@ function Dashboard() {
       if (filters.acao === "yes" && !o.acaoNecessaria) return false;
       if (filters.acao === "no" && o.acaoNecessaria) return false;
       if (filters.area !== "all") {
-        const st = o.areas[filters.area as keyof typeof o.areas]?.status;
-        if (!st || st === "Atualizada" || st === "Concluída") return false;
+        // Mostra apenas impactos onde aquela área ainda não foi avaliada
+        if (isAreaAvaliada(o, filters.area as never)) return false;
       }
       return true;
     });
   }, [obrigacoes, filters]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen">
       <Header />
 
       <main className="mx-auto max-w-[1500px] space-y-5 px-6 py-6">
-        {/* Top actions */}
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div className="sm:hidden">
-            <h1 className="text-lg font-semibold">Calendário de Gestão de Impactos 2026</h1>
+            <h1 className="text-lg font-semibold">
+              Calendário de Gestão de Impactos 2026
+            </h1>
             <p className="text-xs text-muted-foreground">
               Visão estratégica para antecipação e preparação dos principais temas do ano.
             </p>
@@ -79,12 +81,11 @@ function Dashboard() {
         </div>
 
         <SummaryCards obrigacoes={obrigacoes} />
-
         <Filters value={filters} onChange={setFilters} />
 
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px]">
           <CalendarGrid obrigacoes={filtered} onSelect={(o) => setSelected(o)} />
-          <PendingPanel obrigacoes={obrigacoes} onSelect={(o) => setSelected(o)} />
+          <AreaProgressPanel obrigacoes={obrigacoes} />
         </div>
       </main>
 
