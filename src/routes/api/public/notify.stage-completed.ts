@@ -84,7 +84,8 @@ export const Route = createFileRoute("/api/public/notify/stage-completed")({
             await supabaseAdmin.from("notificacoes_enviadas").insert({
               chave,
               canal: ch.name,
-              payload: parsed as unknown as Record<string, unknown>,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              payload: parsed as any,
             });
           } catch (err) {
             console.warn(`[notify:${ch.name}] erro`, err);

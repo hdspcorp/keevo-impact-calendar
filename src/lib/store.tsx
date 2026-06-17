@@ -209,7 +209,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase
         .from("app_state")
         .upsert(
-          { id: 1, data: payload as unknown as Record<string, unknown>, updated_at: new Date().toISOString(), updated_by: CLIENT_ID },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          { id: 1, data: payload as any, updated_at: new Date().toISOString(), updated_by: CLIENT_ID },
           { onConflict: "id" }
         );
       if (error) console.warn("[store] save failed", error);

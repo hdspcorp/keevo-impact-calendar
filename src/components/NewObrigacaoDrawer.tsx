@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useStore } from "@/lib/store";
 import { Criticidade, Periodicidade, STATUS_GERAL, StatusGeral } from "@/lib/domain";
-import { Star } from "lucide-react";
+import { Star, ShieldOff } from "lucide-react";
 import { toast } from "sonner";
 
 export function NewObrigacaoDrawer({
@@ -29,6 +29,7 @@ export function NewObrigacaoDrawer({
     resumo: "",
     statusGeral: "Não iniciada" as StatusGeral,
     acaoNecessaria: false,
+    requerValidacaoNexus: true,
   });
 
   const reset = () =>
@@ -42,6 +43,7 @@ export function NewObrigacaoDrawer({
       resumo: "",
       statusGeral: "Não iniciada",
       acaoNecessaria: false,
+      requerValidacaoNexus: true,
     });
 
   const submit = (e: React.FormEvent) => {
@@ -161,6 +163,22 @@ export function NewObrigacaoDrawer({
             <Switch
               checked={f.acaoNecessaria}
               onCheckedChange={(v) => setF({ ...f, acaoNecessaria: v })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between rounded-xl border bg-muted/40 px-3 py-3">
+            <div className="flex items-center gap-2">
+              <ShieldOff className={f.requerValidacaoNexus ? "h-4 w-4 text-muted-foreground" : "h-4 w-4 text-primary"} />
+              <div>
+                <div className="text-sm font-medium text-foreground">Requer validação do NEXUS?</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Desative se for um impacto apenas informativo ou já tecnicamente validado pelo Desenvolvimento. O NEXUS sai do fluxo.
+                </div>
+              </div>
+            </div>
+            <Switch
+              checked={f.requerValidacaoNexus}
+              onCheckedChange={(v) => setF({ ...f, requerValidacaoNexus: v })}
             />
           </div>
 
