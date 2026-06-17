@@ -14,7 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_state: {
+        Row: {
+          data: Json
+          id: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          data?: Json
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          data?: Json
+          id?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      notificacoes_enviadas: {
+        Row: {
+          canal: string
+          chave: string
+          enviada_em: string
+          id: string
+          payload: Json | null
+        }
+        Insert: {
+          canal: string
+          chave: string
+          enviada_em?: string
+          id?: string
+          payload?: Json | null
+        }
+        Update: {
+          canal?: string
+          chave?: string
+          enviada_em?: string
+          id?: string
+          payload?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
