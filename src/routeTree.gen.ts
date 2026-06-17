@@ -10,33 +10,44 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicNotifyStageCompletedRouteImport } from './routes/api/public/notify.stage-completed'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicNotifyStageCompletedRoute =
+  ApiPublicNotifyStageCompletedRouteImport.update({
+    id: '/api/public/notify/stage-completed',
+    path: '/api/public/notify/stage-completed',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/notify/stage-completed': typeof ApiPublicNotifyStageCompletedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/notify/stage-completed': typeof ApiPublicNotifyStageCompletedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/notify/stage-completed': typeof ApiPublicNotifyStageCompletedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/public/notify/stage-completed'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/public/notify/stage-completed'
+  id: '__root__' | '/' | '/api/public/notify/stage-completed'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicNotifyStageCompletedRoute: typeof ApiPublicNotifyStageCompletedRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,22 +59,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/notify/stage-completed': {
+      id: '/api/public/notify/stage-completed'
+      path: '/api/public/notify/stage-completed'
+      fullPath: '/api/public/notify/stage-completed'
+      preLoaderRoute: typeof ApiPublicNotifyStageCompletedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicNotifyStageCompletedRoute: ApiPublicNotifyStageCompletedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

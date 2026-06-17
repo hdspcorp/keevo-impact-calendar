@@ -10,6 +10,10 @@ export type FilterValues = {
   status: string;
   tipo: string;
   acao: string;
+  /** "all" | "yes" | "no" */
+  nexus: string;
+  /** "all" | "60d" */
+  vencimento: string;
 };
 
 export const DEFAULT_FILTERS: FilterValues = {
@@ -18,6 +22,8 @@ export const DEFAULT_FILTERS: FilterValues = {
   status: "all",
   tipo: "all",
   acao: "all",
+  nexus: "all",
+  vencimento: "all",
 };
 
 export function Filters({
@@ -42,35 +48,42 @@ export function Filters({
         />
       </div>
 
-      <Sel value={value.area} onChange={(v) => set("area", v)} placeholder="Área">
+      <Sel value={value.area} onChange={(v) => set("area", v)}>
         <SelectItem value="all">Todas as áreas</SelectItem>
         {AREAS.map((a) => (
-          <SelectItem key={a.slug} value={a.slug}>
-            {a.nome}
-          </SelectItem>
+          <SelectItem key={a.slug} value={a.slug}>{a.nome}</SelectItem>
         ))}
       </Sel>
 
-      <Sel value={value.status} onChange={(v) => set("status", v)} placeholder="Status">
+      <Sel value={value.status} onChange={(v) => set("status", v)}>
         <SelectItem value="all">Todos os status</SelectItem>
         {STATUS_GERAL.map((s) => (
-          <SelectItem key={s} value={s}>
-            {s}
-          </SelectItem>
+          <SelectItem key={s} value={s}>{s}</SelectItem>
         ))}
       </Sel>
 
-      <Sel value={value.tipo} onChange={(v) => set("tipo", v)} placeholder="Periodicidade">
+      <Sel value={value.tipo} onChange={(v) => set("tipo", v)}>
         <SelectItem value="all">Toda periodicidade</SelectItem>
         <SelectItem value="Mensal">Mensal</SelectItem>
         <SelectItem value="Anual">Anual</SelectItem>
         <SelectItem value="Eventual">Eventual</SelectItem>
       </Sel>
 
-      <Sel value={value.acao} onChange={(v) => set("acao", v)} placeholder="Ação necessária">
+      <Sel value={value.acao} onChange={(v) => set("acao", v)}>
         <SelectItem value="all">Ação: todas</SelectItem>
         <SelectItem value="yes">Apenas com estrela</SelectItem>
         <SelectItem value="no">Sem ação necessária</SelectItem>
+      </Sel>
+
+      <Sel value={value.nexus} onChange={(v) => set("nexus", v)}>
+        <SelectItem value="all">NEXUS: todas</SelectItem>
+        <SelectItem value="yes">Requer NEXUS</SelectItem>
+        <SelectItem value="no">Dispensa NEXUS</SelectItem>
+      </Sel>
+
+      <Sel value={value.vencimento} onChange={(v) => set("vencimento", v)}>
+        <SelectItem value="all">Vencimento: todos</SelectItem>
+        <SelectItem value="60d">Próximos 60 dias</SelectItem>
       </Sel>
     </div>
   );
@@ -79,18 +92,16 @@ export function Filters({
 function Sel({
   value,
   onChange,
-  placeholder,
   children,
 }: {
   value: string;
   onChange: (v: string) => void;
-  placeholder: string;
   children: React.ReactNode;
 }) {
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-9 w-auto min-w-[150px] border-0 bg-secondary/60 text-xs shadow-none">
-        <SelectValue placeholder={placeholder} />
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>{children}</SelectContent>
     </Select>
