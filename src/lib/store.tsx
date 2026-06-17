@@ -7,14 +7,18 @@ import {
   DEFAULT_TEMPLATES,
   Obrigacao,
   SEED_OBRIGACOES,
+  SEED_EVENTOS,
+  Evento,
   acoesFromTemplates,
+  areaOrdemEfetiva,
   emptyAreas,
   StatusGeral,
-  StatusArea,
   Acao,
   HistoricoEntry,
   MOCK_USERS,
 } from "./domain";
+import { supabase } from "@/integrations/supabase/client";
+import { notifyStageCompleted } from "./notifications/client";
 
 // ---- Auth ----
 export type Session =
@@ -22,11 +26,13 @@ export type Session =
   | { kind: "area"; nome: string; email: string; area: AreaSlug }
   | null;
 
-type State = {
+type Persisted = {
   obrigacoes: Obrigacao[];
   templates: ChecklistTemplate[];
-  session: Session;
+  eventos: Evento[];
 };
+
+type State = Persisted & { session: Session };
 
 type Ctx = State & {
   login: (userOrEmail: string, pass: string) => Session;
@@ -47,11 +53,18 @@ type Ctx = State & {
   marcarSemAcao: (obrigacaoId: string, area: AreaSlug) => void;
   reabrirArea: (obrigacaoId: string, area: AreaSlug) => void;
   toggleAcaoNecessaria: (obrigacaoId: string) => void;
+  toggleRequerValidacaoNexus: (obrigacaoId: string) => void;
+
+  addEvento: (e: Omit<Evento, "id" | "criadoEm" | "criadoPor">) => void;
+  updateEvento: (id: string, patch: Partial<Evento>) => void;
+  removeEvento: (id: string) => void;
 
   addTemplate: (t: Omit<ChecklistTemplate, "id" | "ordem">) => void;
   updateTemplate: (id: string, patch: Partial<ChecklistTemplate>) => void;
   removeTemplate: (id: string) => void;
   reorderTemplate: (id: string, dir: -1 | 1) => void;
+
+  hydrated: boolean;
 };
 
 export type NewObrigacaoInput = {
@@ -64,21 +77,24 @@ export type NewObrigacaoInput = {
   resumo: string;
   statusGeral: StatusGeral;
   acaoNecessaria: boolean;
+  requerValidacaoNexus: boolean;
 };
 
 const StoreCtx = React.createContext<Ctx | null>(null);
-const LS_KEY = "keevo-impactos-2026-v2";
-
-function loadInitial(): State {
-  if (typeof window === "undefined") {
-    return { obrigacoes: SEED_OBRIGACOES, templates: DEFAULT_TEMPLATES, session: null };
-  }
+const SESSION_KEY = "keevo-impactos-session-v1";
+const CLIENT_ID = (() => {
+  if (typeof window === "undefined") return "server";
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return { obrigacoes: SEED_OBRIGACOES, templates: DEFAULT_TEMPLATES, session: null };
-}
+    let id = localStorage.getItem("keevo-client-id");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("keevo-client-id", id);
+    }
+    return id;
+  } catch {
+    return Math.random().toString(36).slice(2);
+  }
+})();
 
 function makeHist(
   area: AreaSlug,
@@ -100,24 +116,124 @@ function pushHist(o: Obrigacao, entry: HistoricoEntry): Obrigacao {
   return { ...o, historico: [entry, ...o.historico].slice(0, 60) };
 }
 
-export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<State>(() => loadInitial());
+function migrate(p: Partial<Persisted> | null | undefined): Persisted {
+  const obrigacoes = (p?.obrigacoes ?? SEED_OBRIGACOES).map((o) => ({
+    ...o,
+    requerValidacaoNexus: o.requerValidacaoNexus ?? true,
+  }));
+  return {
+    obrigacoes,
+    templates: p?.templates ?? DEFAULT_TEMPLATES,
+    eventos: p?.eventos ?? SEED_EVENTOS,
+  };
+}
 
+export function StoreProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = React.useState<State>(() => ({
+    ...migrate(null),
+    session: (() => {
+      if (typeof window === "undefined") return null;
+      try {
+        const raw = localStorage.getItem(SESSION_KEY);
+        return raw ? (JSON.parse(raw) as Session) : null;
+      } catch {
+        return null;
+      }
+    })(),
+  }));
+  const [hydrated, setHydrated] = React.useState(false);
+  const skipNextSaveRef = React.useRef(true);
+  const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // -- initial load + realtime subscription --
   React.useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data, error } = await supabase
+        .from("app_state")
+        .select("data")
+        .eq("id", 1)
+        .maybeSingle();
+      if (!active) return;
+      if (error) {
+        console.warn("[store] load failed, using seed", error);
+        setHydrated(true);
+        return;
+      }
+      const remote = (data?.data ?? {}) as Partial<Persisted>;
+      const empty = !remote.obrigacoes || remote.obrigacoes.length === 0;
+      const merged = migrate(empty ? null : remote);
+      skipNextSaveRef.current = true;
+      setState((s) => ({ ...s, ...merged }));
+      setHydrated(true);
+    })();
+
+    const channel = supabase
+      .channel("app_state_sync")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "app_state" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as
+            | { data: Partial<Persisted>; updated_by: string | null }
+            | undefined;
+          if (!row) return;
+          if (row.updated_by === CLIENT_ID) return; // ignora próprio write
+          const merged = migrate(row.data);
+          skipNextSaveRef.current = true;
+          setState((s) => ({ ...s, ...merged }));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // -- persist on change (debounced) --
+  React.useEffect(() => {
+    if (!hydrated) return;
+    if (skipNextSaveRef.current) {
+      skipNextSaveRef.current = false;
+      return;
+    }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      const payload: Persisted = {
+        obrigacoes: state.obrigacoes,
+        templates: state.templates,
+        eventos: state.eventos,
+      };
+      const { error } = await supabase
+        .from("app_state")
+        .upsert(
+          { id: 1, data: payload as unknown as Record<string, unknown>, updated_at: new Date().toISOString(), updated_by: CLIENT_ID },
+          { onConflict: "id" }
+        );
+      if (error) console.warn("[store] save failed", error);
+    }, 400);
+  }, [state.obrigacoes, state.templates, state.eventos, hydrated]);
+
+  // -- persist session locally --
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify(state));
+      if (state.session) localStorage.setItem(SESSION_KEY, JSON.stringify(state.session));
+      else localStorage.removeItem(SESSION_KEY);
     } catch {}
-  }, [state]);
+  }, [state.session]);
 
   const ctx: Ctx = {
     ...state,
+    hydrated,
 
     login(userOrEmail, pass) {
       const q = userOrEmail.toLowerCase().trim();
       const found = MOCK_USERS.find(
         (u) =>
-          (u.email.toLowerCase() === q ||
-            u.email.split("@")[0].toLowerCase() === q) &&
+          (u.email.toLowerCase() === q || u.email.split("@")[0].toLowerCase() === q) &&
           u.pass === pass
       );
       if (!found) return null;
@@ -148,8 +264,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         historico: [],
       };
       o.areas.nexus = { ...o.areas.nexus, responsavel: "NEXUS" };
-      const session = state.session;
-      const hist = makeHist("nexus", session, "criacao", `Obrigação "${data.nome}" criada.`);
+      const hist = makeHist("nexus", state.session, "criacao", `Obrigação "${data.nome}" criada.`);
       const final = pushHist(o, hist);
       setState((s) => ({ ...s, obrigacoes: [final, ...s.obrigacoes] }));
       return final;
@@ -186,7 +301,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           });
           if (!toggled) return o;
           const area = toggled.area;
-          const now = new Date().toISOString();
+          const nowIso = new Date().toISOString();
           let updated: Obrigacao = {
             ...o,
             acoes,
@@ -194,15 +309,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               ...o.areas,
               [area]: {
                 ...o.areas[area],
-                ultimaAtualizacao: now,
+                ultimaAtualizacao: nowIso,
                 atualizadoPor: s.session?.nome ?? "Sistema",
-                // Se a área estava aguardando, passa a "Em análise" (rascunho)
                 status:
                   o.areas[area].status === "Aguardando avaliação" ||
                   o.areas[area].status === "Reaberta"
                     ? "Em análise"
                     : o.areas[area].status,
-                // Se ficou sem nenhuma seleção e estava em "Ações selecionadas", volta a "Em análise"
               },
             },
           };
@@ -230,9 +343,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             area,
             nome,
             origem: "custom",
-            selecionada: true, // ação customizada já é considerada selecionada
+            selecionada: true,
           };
-          const now = new Date().toISOString();
+          const nowIso = new Date().toISOString();
           let updated: Obrigacao = {
             ...o,
             acoes: [...o.acoes, nova],
@@ -240,7 +353,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               ...o.areas,
               [area]: {
                 ...o.areas[area],
-                ultimaAtualizacao: now,
+                ultimaAtualizacao: nowIso,
                 atualizadoPor: s.session?.nome ?? "Sistema",
                 status:
                   o.areas[area].status === "Aguardando avaliação" ||
@@ -266,18 +379,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (o.id !== obrigacaoId) return o;
           const acao = o.acoes.find((a) => a.id === acaoId);
           if (!acao || acao.origem !== "custom") return o;
-          let updated: Obrigacao = {
-            ...o,
-            acoes: o.acoes.filter((a) => a.id !== acaoId),
-          };
+          let updated: Obrigacao = { ...o, acoes: o.acoes.filter((a) => a.id !== acaoId) };
           updated = pushHist(
             updated,
-            makeHist(
-              acao.area,
-              s.session,
-              "acao-custom-remove",
-              `Ação customizada removida: "${acao.nome}"`
-            )
+            makeHist(acao.area, s.session, "acao-custom-remove", `Ação customizada removida: "${acao.nome}"`)
           );
           return updated;
         }),
@@ -314,7 +419,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...s,
         obrigacoes: s.obrigacoes.map((x) => {
           if (x.id !== obrigacaoId) return x;
-          const now = new Date().toISOString();
+          const nowIso = new Date().toISOString();
           let upd: Obrigacao = {
             ...x,
             areas: {
@@ -323,8 +428,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 ...x.areas[area],
                 status: "Concluída",
                 semAcaoNecessaria: false,
-                concluidaEm: now,
-                ultimaAtualizacao: now,
+                concluidaEm: nowIso,
+                ultimaAtualizacao: nowIso,
                 atualizadoPor: s.session?.nome ?? "Sistema",
               },
             },
@@ -332,13 +437,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const nomes = selecionadas.map((a) => a.nome).join(", ");
           upd = pushHist(
             upd,
-            makeHist(
-              area,
-              s.session,
-              "pronto",
-              `Avaliação concluída — ações selecionadas: ${nomes}.`
-            )
+            makeHist(area, s.session, "pronto", `Avaliação concluída — ações selecionadas: ${nomes}.`)
           );
+          // notificação fire-and-forget
+          const prox = nextPending(upd, area);
+          notifyStageCompleted({
+            obrigacaoId: upd.id,
+            obrigacaoNome: upd.nome,
+            areaOrigem: area,
+            areaDestino: prox,
+            acaoEsperada: nomes,
+            prazo: upd.dataVencimento,
+            prioridade: upd.criticidade,
+            usuario: s.session?.nome ?? "Sistema",
+          }).catch(() => {});
           return upd;
         }),
       }));
@@ -350,8 +462,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...s,
         obrigacoes: s.obrigacoes.map((x) => {
           if (x.id !== obrigacaoId) return x;
-          const now = new Date().toISOString();
-          // Desmarca todas as ações da área
+          const nowIso = new Date().toISOString();
           const acoes = x.acoes.map((a) =>
             a.area === area && a.origem === "template" ? { ...a, selecionada: false } : a
           );
@@ -364,21 +475,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 ...x.areas[area],
                 status: "Sem ação necessária",
                 semAcaoNecessaria: true,
-                concluidaEm: now,
-                ultimaAtualizacao: now,
+                concluidaEm: nowIso,
+                ultimaAtualizacao: nowIso,
                 atualizadoPor: s.session?.nome ?? "Sistema",
               },
             },
           };
           upd = pushHist(
             upd,
-            makeHist(
-              area,
-              s.session,
-              "sem-acao",
-              "Avaliou o impacto e declarou que nenhuma ação será necessária."
-            )
+            makeHist(area, s.session, "sem-acao", "Avaliou o impacto e declarou que nenhuma ação será necessária.")
           );
+          const prox = nextPending(upd, area);
+          notifyStageCompleted({
+            obrigacaoId: upd.id,
+            obrigacaoNome: upd.nome,
+            areaOrigem: area,
+            areaDestino: prox,
+            acaoEsperada: "Sem ação necessária",
+            prazo: upd.dataVencimento,
+            prioridade: upd.criticidade,
+            usuario: s.session?.nome ?? "Sistema",
+          }).catch(() => {});
           return upd;
         }),
       }));
@@ -389,7 +506,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         ...s,
         obrigacoes: s.obrigacoes.map((x) => {
           if (x.id !== obrigacaoId) return x;
-          const now = new Date().toISOString();
+          const nowIso = new Date().toISOString();
           let upd: Obrigacao = {
             ...x,
             areas: {
@@ -399,15 +516,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 status: "Reaberta",
                 semAcaoNecessaria: false,
                 concluidaEm: undefined,
-                ultimaAtualizacao: now,
+                ultimaAtualizacao: nowIso,
                 atualizadoPor: s.session?.nome ?? "Sistema",
               },
             },
           };
-          upd = pushHist(
-            upd,
-            makeHist(area, s.session, "reabertura", "Avaliação reaberta para edição.")
-          );
+          upd = pushHist(upd, makeHist(area, s.session, "reabertura", "Avaliação reaberta para edição."));
           return upd;
         }),
       }));
@@ -426,14 +540,54 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               "nexus",
               s.session,
               "nexus-acao-necessaria",
-              v
-                ? "NEXUS marcou o impacto como Ação necessária."
-                : "NEXUS removeu a marcação de Ação necessária."
+              v ? "NEXUS marcou o impacto como Ação necessária." : "NEXUS removeu a marcação de Ação necessária."
             )
           );
           return upd;
         }),
       }));
+    },
+
+    toggleRequerValidacaoNexus(obrigacaoId) {
+      setState((s) => ({
+        ...s,
+        obrigacoes: s.obrigacoes.map((o) => {
+          if (o.id !== obrigacaoId) return o;
+          const v = !(o.requerValidacaoNexus ?? true);
+          let upd: Obrigacao = { ...o, requerValidacaoNexus: v };
+          upd = pushHist(
+            upd,
+            makeHist(
+              "nexus",
+              s.session,
+              "info",
+              v
+                ? "Etapa do NEXUS reativada para este card."
+                : "Card marcado como dispensa validação do NEXUS."
+            )
+          );
+          return upd;
+        }),
+      }));
+    },
+
+    addEvento(e) {
+      const ev: Evento = {
+        ...e,
+        id: `ev-${Date.now()}`,
+        criadoEm: new Date().toISOString(),
+        criadoPor: state.session?.nome ?? "Sistema",
+      };
+      setState((s) => ({ ...s, eventos: [ev, ...s.eventos] }));
+    },
+    updateEvento(id, patch) {
+      setState((s) => ({
+        ...s,
+        eventos: s.eventos.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      }));
+    },
+    removeEvento(id) {
+      setState((s) => ({ ...s, eventos: s.eventos.filter((e) => e.id !== id) }));
     },
 
     addTemplate(t) {
@@ -456,9 +610,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setState((s) => {
         const t = s.templates.find((x) => x.id === id);
         if (!t) return s;
-        const sameArea = s.templates
-          .filter((x) => x.area === t.area)
-          .sort((a, b) => a.ordem - b.ordem);
+        const sameArea = s.templates.filter((x) => x.area === t.area).sort((a, b) => a.ordem - b.ordem);
         const idx = sameArea.findIndex((x) => x.id === id);
         const swap = sameArea[idx + dir];
         if (!swap) return s;
@@ -489,8 +641,9 @@ export function isAreaAvaliada(o: Obrigacao, area: AreaSlug): boolean {
 }
 
 export function areaProgress(o: Obrigacao) {
-  const total = AREAS.length;
-  const atualizadas = AREAS.filter((a) => isAreaAvaliada(o, a.slug)).length;
+  const ord = areaOrdemEfetiva(o);
+  const total = ord.length;
+  const atualizadas = ord.filter((a) => isAreaAvaliada(o, a)).length;
   return { atualizadas, total, pct: Math.round((atualizadas / total) * 100) };
 }
 
@@ -513,13 +666,20 @@ export function ultimaAreaConcluida(o: Obrigacao): { area: AreaSlug; iso: string
 }
 
 export function proximaPendente(o: Obrigacao): AreaSlug | null {
-  for (const a of AREA_ORDEM) {
+  for (const a of areaOrdemEfetiva(o)) {
     if (!isAreaAvaliada(o, a)) return a;
   }
   return null;
 }
+function nextPending(o: Obrigacao, after: AreaSlug): AreaSlug | null {
+  const ord = areaOrdemEfetiva(o);
+  const idx = ord.indexOf(after);
+  for (let i = idx + 1; i < ord.length; i++) {
+    if (!isAreaAvaliada(o, ord[i])) return ord[i];
+  }
+  return null;
+}
 
-// Compat alias
 export const pendenteCom = proximaPendente;
 
 export function acoesSelecionadasDaArea(o: Obrigacao, area: AreaSlug): Acao[] {
@@ -541,3 +701,6 @@ export function areaStatusResumo(o: Obrigacao, area: AreaSlug): string {
   if (st === "Atrasada") return "Atrasada";
   return "Aguardando avaliação";
 }
+
+// Re-exports
+export { AREA_ORDEM };

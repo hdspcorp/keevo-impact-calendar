@@ -1,5 +1,4 @@
 // Domain types & seed data for Calendário de Gestão de Impactos 2026
-// Designed to map cleanly onto Supabase tables later.
 
 export type AreaSlug = "nexus" | "desenvolvimento" | "conteudos" | "marketing" | "operacoes";
 
@@ -20,10 +19,10 @@ export const AREA_ORDEM: AreaSlug[] = [
 ];
 
 export const areaNome = (s: AreaSlug) => AREAS.find((a) => a.slug === s)!.nome;
+export const areaCor = (s: AreaSlug) => AREAS.find((a) => a.slug === s)!.cor;
 
 export type StatusGeral = "Não iniciada" | "Em andamento" | "Atualizada" | "Pendente" | "Concluída";
 
-// Status específicos por área (semântica nova)
 export type StatusArea =
   | "Aguardando avaliação"
   | "Em análise"
@@ -64,8 +63,6 @@ export type ChecklistTemplate = {
   somenteAcaoNecessaria: boolean;
 };
 
-// Ação: agora representa um item disponível na área. `selecionada` indica
-// se a área considera essa ação necessária para aquele impacto.
 export type Acao = {
   id: string;
   area: AreaSlug;
@@ -80,8 +77,8 @@ export type AreaStatus = {
   observacoes: string;
   responsavel: string;
   prazo?: string;
-  semAcaoNecessaria?: boolean; // true se a área declarou "Não será necessária nenhuma ação"
-  concluidaEm?: string; // ISO – preenchido ao clicar PRONTO ou "Sem ação"
+  semAcaoNecessaria?: boolean;
+  concluidaEm?: string;
   ultimaAtualizacao?: string;
   atualizadoPor?: string;
 };
@@ -118,9 +115,53 @@ export type Obrigacao = {
   observacoes?: string;
   statusGeral: StatusGeral;
   acaoNecessaria: boolean;
+  /** Quando false, o card pula a etapa do NEXUS no fluxo. Default true. */
+  requerValidacaoNexus: boolean;
   areas: Record<AreaSlug, AreaStatus>;
   acoes: Acao[];
   historico: HistoricoEntry[];
+};
+
+// ---------- EVENTOS ----------
+export type TipoEvento =
+  | "Campanha"
+  | "Live"
+  | "Treinamento"
+  | "Webinar"
+  | "Disparo"
+  | "Lançamento"
+  | "Manutenção"
+  | "Reunião"
+  | "Outro";
+
+export const TIPOS_EVENTO: TipoEvento[] = [
+  "Campanha",
+  "Live",
+  "Treinamento",
+  "Webinar",
+  "Disparo",
+  "Lançamento",
+  "Manutenção",
+  "Reunião",
+  "Outro",
+];
+
+export type RelevanciaEvento = "Baixa" | "Média" | "Alta";
+
+export type Evento = {
+  id: string;
+  titulo: string;
+  area: AreaSlug;
+  tipo: TipoEvento;
+  dataInicio: string; // YYYY-MM-DD
+  dataFim?: string;
+  descricao: string;
+  responsavel: string;
+  relevancia: RelevanciaEvento;
+  geraConflito: boolean;
+  observacoes?: string;
+  criadoEm: string;
+  criadoPor: string;
 };
 
 // ---------- TEMPLATES ----------
@@ -193,8 +234,6 @@ export const emptyAreas = (): Record<AreaSlug, AreaStatus> =>
     {} as Record<AreaSlug, AreaStatus>
   );
 
-// Carrega ações padrão da área a partir dos templates, todas DESmarcadas.
-// Cada ação só será marcada se a própria área julgar necessária.
 export const acoesFromTemplates = (
   templates: ChecklistTemplate[],
   acaoNecessaria: boolean
@@ -210,12 +249,19 @@ export const acoesFromTemplates = (
       selecionada: false,
     }));
 
+/** Ordem efetiva de áreas para o fluxo (pula NEXUS quando não exige validação). */
+export const areaOrdemEfetiva = (o: Obrigacao): AreaSlug[] =>
+  o.requerValidacaoNexus === false
+    ? AREA_ORDEM.filter((a) => a !== "nexus")
+    : AREA_ORDEM;
+
 // ---------- SEED OBRIGAÇÕES ----------
 const now = new Date().toISOString();
 const yest = new Date(Date.now() - 86400000).toISOString();
 
 const mk = (
-  o: Omit<Obrigacao, "areas" | "acoes" | "historico"> & {
+  o: Omit<Obrigacao, "areas" | "acoes" | "historico" | "requerValidacaoNexus"> & {
+    requerValidacaoNexus?: boolean;
     progresso?: Partial<Record<AreaSlug, Partial<AreaStatus>>>;
     selecionadas?: Partial<Record<AreaSlug, string[]>>;
   }
@@ -235,7 +281,14 @@ const mk = (
       }
     }
   }
-  return { ...o, areas, acoes, historico: [] };
+  const { progresso: _p, selecionadas: _s, ...rest } = o;
+  return {
+    ...rest,
+    requerValidacaoNexus: o.requerValidacaoNexus ?? true,
+    areas,
+    acoes,
+    historico: [],
+  };
 };
 
 export const SEED_OBRIGACOES: Obrigacao[] = [
@@ -247,26 +300,14 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     dataVencimento: "2026-02-05",
     criticidade: "Alta",
     impacto: "Cálculo e geração da folha mensal de todos os clientes.",
-    resumo:
-      "Rotina mensal de fechamento da folha. Requer verificação de eventos, descontos e integração bancária.",
+    resumo: "Rotina mensal de fechamento da folha. Requer verificação de eventos, descontos e integração bancária.",
     statusGeral: "Em andamento",
     acaoNecessaria: true,
     progresso: {
-      nexus: {
-        status: "Concluída",
-        ultimaAtualizacao: yest,
-        atualizadoPor: "Ana (NEXUS)",
-        concluidaEm: yest,
-      },
-      desenvolvimento: {
-        status: "Em análise",
-        ultimaAtualizacao: now,
-        atualizadoPor: "Carlos (Dev)",
-      },
+      nexus: { status: "Concluída", ultimaAtualizacao: yest, atualizadoPor: "Ana (NEXUS)", concluidaEm: yest },
+      desenvolvimento: { status: "Em análise", ultimaAtualizacao: now, atualizadoPor: "Carlos (Dev)" },
     },
-    selecionadas: {
-      nexus: ["Comunicado", "Conteúdo técnico"],
-    },
+    selecionadas: { nexus: ["Comunicado", "Conteúdo técnico"] },
   }),
   mk({
     id: "ob-2",
@@ -280,16 +321,9 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     statusGeral: "Não iniciada",
     acaoNecessaria: true,
     progresso: {
-      nexus: {
-        status: "Concluída",
-        ultimaAtualizacao: now,
-        atualizadoPor: "Ana (NEXUS)",
-        concluidaEm: now,
-      },
+      nexus: { status: "Concluída", ultimaAtualizacao: now, atualizadoPor: "Ana (NEXUS)", concluidaEm: now },
     },
-    selecionadas: {
-      nexus: ["Comunicado", "Treinamento Interno"],
-    },
+    selecionadas: { nexus: ["Comunicado", "Treinamento Interno"] },
   }),
   mk({
     id: "ob-3",
@@ -310,32 +344,14 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     linhaModulo: "Folha / IR",
     dataVencimento: "2026-05-29",
     criticidade: "Alta",
-    impacto:
-      "Alteração na faixa de isenção e nova tabela progressiva para o ano-calendário.",
-    resumo:
-      "Necessária atualização do motor de cálculo, comunicação ao mercado e treinamento interno.",
+    impacto: "Alteração na faixa de isenção e nova tabela progressiva para o ano-calendário.",
+    resumo: "Necessária atualização do motor de cálculo, comunicação ao mercado e treinamento interno.",
     statusGeral: "Em andamento",
     acaoNecessaria: true,
     progresso: {
-      nexus: {
-        status: "Concluída",
-        ultimaAtualizacao: yest,
-        atualizadoPor: "Ana (NEXUS)",
-        concluidaEm: yest,
-      },
-      desenvolvimento: {
-        status: "Concluída",
-        ultimaAtualizacao: now,
-        atualizadoPor: "Carlos (Dev)",
-        concluidaEm: now,
-      },
-      conteudos: {
-        status: "Sem ação necessária",
-        ultimaAtualizacao: now,
-        atualizadoPor: "Bruno (Conteúdos)",
-        semAcaoNecessaria: true,
-        concluidaEm: now,
-      },
+      nexus: { status: "Concluída", ultimaAtualizacao: yest, atualizadoPor: "Ana (NEXUS)", concluidaEm: yest },
+      desenvolvimento: { status: "Concluída", ultimaAtualizacao: now, atualizadoPor: "Carlos (Dev)", concluidaEm: now },
+      conteudos: { status: "Sem ação necessária", ultimaAtualizacao: now, atualizadoPor: "Bruno (Conteúdos)", semAcaoNecessaria: true, concluidaEm: now },
     },
     selecionadas: {
       nexus: ["Treinamento Interno", "Comunicado"],
@@ -349,28 +365,15 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     linhaModulo: "Fiscal / Estratégico",
     dataVencimento: "2026-07-01",
     criticidade: "Alta",
-    impacto:
-      "Implantação gradual do IBS/CBS impactando módulos fiscais, contábeis e contratos.",
-    resumo:
-      "Tema estratégico do ano. Requer plano de comunicação, treinamentos e revisão de toda a stack fiscal.",
+    impacto: "Implantação gradual do IBS/CBS impactando módulos fiscais, contábeis e contratos.",
+    resumo: "Tema estratégico do ano. Requer plano de comunicação, treinamentos e revisão de toda a stack fiscal.",
     statusGeral: "Pendente",
     acaoNecessaria: true,
     progresso: {
-      nexus: {
-        status: "Concluída",
-        ultimaAtualizacao: yest,
-        atualizadoPor: "Ana (NEXUS)",
-        concluidaEm: yest,
-      },
-      desenvolvimento: {
-        status: "Em análise",
-        ultimaAtualizacao: now,
-        atualizadoPor: "Carlos (Dev)",
-      },
+      nexus: { status: "Concluída", ultimaAtualizacao: yest, atualizadoPor: "Ana (NEXUS)", concluidaEm: yest },
+      desenvolvimento: { status: "Em análise", ultimaAtualizacao: now, atualizadoPor: "Carlos (Dev)" },
     },
-    selecionadas: {
-      nexus: ["Keevo Live", "Treinamento Interno", "Comunicado", "Conteúdo técnico"],
-    },
+    selecionadas: { nexus: ["Keevo Live", "Treinamento Interno", "Comunicado", "Conteúdo técnico"] },
   }),
   mk({
     id: "ob-6",
@@ -407,7 +410,53 @@ export const SEED_OBRIGACOES: Obrigacao[] = [
     resumo: "Validar layout e geração do arquivo.",
     statusGeral: "Em andamento",
     acaoNecessaria: false,
+    requerValidacaoNexus: false,
   }),
+];
+
+// ---------- SEED EVENTOS ----------
+export const SEED_EVENTOS: Evento[] = [
+  {
+    id: "ev-1",
+    titulo: "Campanha de IR 2026",
+    area: "marketing",
+    tipo: "Campanha",
+    dataInicio: "2026-02-15",
+    dataFim: "2026-03-31",
+    descricao: "Campanha institucional sobre o novo cálculo do IRPF.",
+    responsavel: "Diana (Marketing)",
+    relevancia: "Alta",
+    geraConflito: true,
+    criadoEm: now,
+    criadoPor: "Diana (Marketing)",
+  },
+  {
+    id: "ev-2",
+    titulo: "Keevo Live: Reforma Tributária",
+    area: "marketing",
+    tipo: "Live",
+    dataInicio: "2026-06-25",
+    descricao: "Live mensal cobrindo IBS/CBS.",
+    responsavel: "Diana (Marketing)",
+    relevancia: "Alta",
+    geraConflito: true,
+    criadoEm: now,
+    criadoPor: "Diana (Marketing)",
+  },
+  {
+    id: "ev-3",
+    titulo: "Treinamento interno – eSocial",
+    area: "operacoes",
+    tipo: "Treinamento",
+    dataInicio: "2026-03-10",
+    dataFim: "2026-03-12",
+    descricao: "Capacitação do time de suporte sobre os novos leiautes.",
+    responsavel: "Eduardo (Operações)",
+    relevancia: "Média",
+    geraConflito: false,
+    criadoEm: now,
+    criadoPor: "Eduardo (Operações)",
+  },
 ];
 
 export const MESES = [
@@ -427,32 +476,8 @@ export type MockUser = {
 export const MOCK_USERS: MockUser[] = [
   { email: "admin@keevo.com", pass: "admin", nome: "Administrador Keevo", kind: "admin" },
   { email: "nexus@keevo.com", pass: "nexus", nome: "Ana (NEXUS)", kind: "area", area: "nexus" },
-  {
-    email: "desenvolvimento@keevo.com",
-    pass: "desenvolvimento",
-    nome: "Carlos (Desenvolvimento)",
-    kind: "area",
-    area: "desenvolvimento",
-  },
-  {
-    email: "conteudos@keevo.com",
-    pass: "conteudos",
-    nome: "Bruno (Conteúdos)",
-    kind: "area",
-    area: "conteudos",
-  },
-  {
-    email: "marketing@keevo.com",
-    pass: "marketing",
-    nome: "Diana (Marketing)",
-    kind: "area",
-    area: "marketing",
-  },
-  {
-    email: "operacoes@keevo.com",
-    pass: "operacoes",
-    nome: "Eduardo (Operações)",
-    kind: "area",
-    area: "operacoes",
-  },
+  { email: "desenvolvimento@keevo.com", pass: "desenvolvimento", nome: "Carlos (Desenvolvimento)", kind: "area", area: "desenvolvimento" },
+  { email: "conteudos@keevo.com", pass: "conteudos", nome: "Bruno (Conteúdos)", kind: "area", area: "conteudos" },
+  { email: "marketing@keevo.com", pass: "marketing", nome: "Diana (Marketing)", kind: "area", area: "marketing" },
+  { email: "operacoes@keevo.com", pass: "operacoes", nome: "Eduardo (Operações)", kind: "area", area: "operacoes" },
 ];

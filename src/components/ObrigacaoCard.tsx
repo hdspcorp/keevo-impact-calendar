@@ -1,11 +1,7 @@
 import * as React from "react";
-import { Star, CalendarDays, Layers, ArrowRight } from "lucide-react";
+import { Star, CalendarDays, ArrowRight, ShieldOff, AlertTriangle } from "lucide-react";
 import { Obrigacao, areaNome } from "@/lib/domain";
-import {
-  areaProgress,
-  proximaPendente,
-  ultimaAreaConcluida,
-} from "@/lib/store";
+import { areaProgress, proximaPendente } from "@/lib/store";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "./StatusBadge";
 import { cn } from "@/lib/utils";
@@ -18,86 +14,93 @@ function fmtDate(iso: string) {
 export function ObrigacaoCard({
   o,
   onClick,
+  hasConflict,
 }: {
   o: Obrigacao;
   onClick: () => void;
+  hasConflict?: boolean;
 }) {
   const prog = areaProgress(o);
   const venc = new Date(o.dataVencimento + "T00:00:00");
   const daysLeft = Math.ceil((venc.getTime() - Date.now()) / 86400000);
   const danger = daysLeft <= 7 && o.statusGeral !== "Concluída";
   const prox = proximaPendente(o);
-  const ult = ultimaAreaConcluida(o);
+  const semNexus = o.requerValidacaoNexus === false;
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        "group relative w-full rounded-2xl border bg-card p-4 text-left shadow-[0_1px_0_rgba(0,0,0,0.02)] transition-all",
-        "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md",
+        "group relative w-full rounded-xl border bg-card px-3 py-2.5 text-left transition-all",
+        "hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-sm",
         o.acaoNecessaria && "ring-1 ring-primary/15"
       )}
     >
-      {o.acaoNecessaria && (
-        <Star
-          className="absolute right-3 top-3 h-4 w-4 fill-primary text-primary drop-shadow-sm"
-          aria-label="Ação necessária"
-        />
-      )}
+      {/* Faixa lateral por status */}
+      <div
+        className={cn(
+          "absolute left-0 top-2 bottom-2 w-0.5 rounded-r-full",
+          o.statusGeral === "Concluída"
+            ? "bg-emerald-400"
+            : o.statusGeral === "Em andamento"
+              ? "bg-amber-400"
+              : o.statusGeral === "Pendente"
+                ? "bg-orange-400"
+                : "bg-border"
+        )}
+      />
 
-      <h3 className="pr-6 text-sm font-semibold leading-snug text-foreground">
+      {/* Ícones superiores */}
+      <div className="absolute right-2 top-2 flex items-center gap-1">
+        {hasConflict && (
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" aria-label="Conflito de agenda" />
+        )}
+        {semNexus && (
+          <ShieldOff
+            className="h-3.5 w-3.5 text-muted-foreground"
+            aria-label="Sem validação NEXUS"
+          />
+        )}
+        {o.acaoNecessaria && (
+          <Star
+            className="h-3.5 w-3.5 fill-primary text-primary"
+            aria-label="Ação necessária"
+          />
+        )}
+      </div>
+
+      <h3 className="pr-14 text-[13px] font-semibold leading-tight text-foreground">
         {o.nome}
       </h3>
 
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-medium text-secondary-foreground">
-          <Layers className="h-3 w-3" />
-          {o.linhaModulo}
-        </span>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-          {o.tipo}
-        </span>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between">
-        <div
-          className={cn(
-            "flex items-center gap-1 text-[11px] font-medium",
-            danger ? "text-red-600" : "text-muted-foreground"
-          )}
-        >
-          <CalendarDays className="h-3 w-3" />
-          {fmtDate(o.dataVencimento)}
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5 font-medium",
+              danger && "text-red-600"
+            )}
+          >
+            <CalendarDays className="h-2.5 w-2.5" />
+            {fmtDate(o.dataVencimento)}
+          </span>
+          <span>· {o.tipo}</span>
         </div>
         <StatusBadge status={o.statusGeral} />
       </div>
 
-      <div className="mt-3">
-        <div className="mb-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>
-            {prog.atualizadas}/{prog.total} áreas avaliadas
-          </span>
-          <span className="font-medium text-foreground">{prog.pct}%</span>
-        </div>
-        <Progress value={prog.pct} className="h-1.5" />
+      <div className="mt-2 flex items-center gap-2">
+        <Progress value={prog.pct} className="h-1 flex-1" />
+        <span className="text-[10px] font-medium text-muted-foreground">
+          {prog.atualizadas}/{prog.total}
+        </span>
       </div>
 
-      {(prox || ult) && (
-        <div className="mt-2.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-          {prox ? (
-            <span className="inline-flex items-center gap-1 truncate">
-              <ArrowRight className="h-3 w-3 text-primary" />
-              próxima:{" "}
-              <span className="font-medium text-foreground">{areaNome(prox)}</span>
-            </span>
-          ) : (
-            <span className="text-emerald-600">Todas as áreas avaliadas</span>
-          )}
-          {ult && (
-            <span className="truncate text-right">
-              última: {areaNome(ult.area)}
-            </span>
-          )}
+      {prox && (
+        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
+          <ArrowRight className="h-2.5 w-2.5 text-primary" />
+          próxima:{" "}
+          <span className="font-medium text-foreground">{areaNome(prox)}</span>
         </div>
       )}
     </button>

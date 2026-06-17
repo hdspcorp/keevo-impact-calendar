@@ -1,12 +1,6 @@
 import * as React from "react";
-import {
-  CheckCircle2,
-  Circle,
-  Clock,
-  MinusCircle,
-  RotateCcw,
-} from "lucide-react";
-import { AREA_ORDEM, AreaSlug, Obrigacao, areaNome } from "@/lib/domain";
+import { CheckCircle2, Circle, Clock, MinusCircle, RotateCcw } from "lucide-react";
+import { AreaSlug, Obrigacao, areaNome, areaOrdemEfetiva } from "@/lib/domain";
 import { areaProgress, proximaPendente, isAreaAvaliada } from "@/lib/store";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +18,7 @@ function fmt(iso?: string) {
 export function StatusTrail({ obrigacao: o }: { obrigacao: Obrigacao }) {
   const prog = areaProgress(o);
   const next = proximaPendente(o);
+  const ordem = areaOrdemEfetiva(o);
 
   return (
     <div className="space-y-3">
@@ -33,7 +28,9 @@ export function StatusTrail({ obrigacao: o }: { obrigacao: Obrigacao }) {
             Trilha de avaliação
           </div>
           <div className="mt-0.5 text-sm text-foreground">
-            <span className="font-semibold">{prog.atualizadas}/{prog.total}</span>{" "}
+            <span className="font-semibold">
+              {prog.atualizadas}/{prog.total}
+            </span>{" "}
             áreas avaliadas
             {next && (
               <span className="text-muted-foreground">
@@ -41,13 +38,22 @@ export function StatusTrail({ obrigacao: o }: { obrigacao: Obrigacao }) {
                 <span className="font-medium text-primary">{areaNome(next)}</span>
               </span>
             )}
+            {o.requerValidacaoNexus === false && (
+              <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+                Dispensa NEXUS
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Trilha horizontal no desktop, vertical no mobile */}
-      <ol className="grid grid-cols-1 gap-2 md:grid-cols-5 md:gap-1">
-        {AREA_ORDEM.map((slug, i) => {
+      <ol
+        className={cn(
+          "grid grid-cols-1 gap-2 md:gap-1",
+          ordem.length === 4 ? "md:grid-cols-4" : "md:grid-cols-5"
+        )}
+      >
+        {ordem.map((slug, i) => {
           const st = o.areas[slug];
           const avaliada = isAreaAvaliada(o, slug);
           const isNext = next === slug;
@@ -77,10 +83,7 @@ export function StatusTrail({ obrigacao: o }: { obrigacao: Obrigacao }) {
           return (
             <li
               key={slug}
-              className={cn(
-                "relative rounded-xl border p-2.5 transition-all",
-                tone
-              )}
+              className={cn("relative rounded-xl border p-2.5 transition-all", tone)}
             >
               <div className="flex items-center gap-2">
                 <Icon className={cn("h-4 w-4 shrink-0", avaliada && "fill-current/10")} />
@@ -115,5 +118,5 @@ export function StatusTrail({ obrigacao: o }: { obrigacao: Obrigacao }) {
 }
 
 export function statusFromArea(slug: AreaSlug) {
-  return slug; // helper placeholder
+  return slug;
 }
