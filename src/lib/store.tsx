@@ -653,10 +653,48 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return { ...s, templates: Array.from(map.values()) };
       });
     },
+
+    // ---- Usuários gerenciados ----
+    addUsuario(u) {
+      const novo: UsuarioGerenciado = {
+        ...u,
+        id: `usr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        ativo: true,
+        criadoEm: new Date().toISOString(),
+      };
+      setState((s) => ({ ...s, usuarios: [novo, ...s.usuarios] }));
+      return novo;
+    },
+    updateUsuario(id, patch) {
+      setState((s) => ({
+        ...s,
+        usuarios: s.usuarios.map((u) => (u.id === id ? { ...u, ...patch } : u)),
+      }));
+    },
+    resetUsuarioSenha(id) {
+      const nova =
+        "Tmp-" +
+        Math.random().toString(36).slice(2, 6).toUpperCase() +
+        Math.floor(Math.random() * 90 + 10);
+      setState((s) => ({
+        ...s,
+        usuarios: s.usuarios.map((u) => (u.id === id ? { ...u, pass: nova } : u)),
+      }));
+      return nova;
+    },
+    removeUsuario(id) {
+      setState((s) => ({ ...s, usuarios: s.usuarios.filter((u) => u.id !== id) }));
+    },
+
+    // ---- Settings ----
+    updateSettings(patch) {
+      setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
+    },
   };
 
   return <StoreCtx.Provider value={ctx}>{children}</StoreCtx.Provider>;
 }
+
 
 export function useStore() {
   const c = React.useContext(StoreCtx);
