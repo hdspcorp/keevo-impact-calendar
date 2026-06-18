@@ -265,6 +265,22 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
           />
         )}
       </SidebarInset>
+  );
+
+  if (hideSidebar) {
+    return <div className="flex min-h-screen w-full">{content}</div>;
+  }
+  return (
+    <div className="flex min-h-screen w-full">
+      <AppSidebar
+        active={effectiveSection}
+        conflitosCount={conflitos.length}
+        showMinhaArea={!!userArea}
+        isAdmin={!!isAdmin}
+        onNavigate={handleNavigate}
+      />
+      {content}
     </div>
   );
 }
+
