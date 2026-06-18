@@ -69,6 +69,15 @@ type Ctx = State & {
   removeTemplate: (id: string) => void;
   reorderTemplate: (id: string, dir: -1 | 1) => void;
 
+  // ---- Usuários gerenciados (admin) ----
+  addUsuario: (u: Omit<UsuarioGerenciado, "id" | "criadoEm" | "ativo">) => UsuarioGerenciado;
+  updateUsuario: (id: string, patch: Partial<UsuarioGerenciado>) => void;
+  resetUsuarioSenha: (id: string) => string; // gera senha temporária
+  removeUsuario: (id: string) => void;
+
+  // ---- Settings ----
+  updateSettings: (patch: Partial<AppSettings>) => void;
+
   hydrated: boolean;
 };
 
