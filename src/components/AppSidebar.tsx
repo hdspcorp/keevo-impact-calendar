@@ -7,6 +7,7 @@ import {
   BarChart3,
   Settings,
   HelpCircle,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -14,6 +15,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -22,6 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { KeevoLogo } from "./KeevoLogo";
 import { cn } from "@/lib/utils";
+import { useStore } from "@/lib/store";
 
 export type SidebarSection =
   | "calendario"
@@ -30,6 +33,7 @@ export type SidebarSection =
   | "impactos"
   | "relatorios"
   | "configuracoes"
+  | "usuarios"
   | "ajuda";
 
 type Item = {
@@ -38,8 +42,6 @@ type Item = {
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
   disabled?: boolean;
-  adminOnly?: boolean;
-  areaOnly?: boolean;
 };
 
 export function AppSidebar({
@@ -57,6 +59,7 @@ export function AppSidebar({
 }) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { settings } = useStore();
 
   const items: Item[] = [
     { key: "calendario", label: "Calendário", icon: CalendarIcon },
@@ -66,9 +69,11 @@ export function AppSidebar({
     { key: "conflitos", label: "Conflitos", icon: AlertTriangle, badge: conflitosCount },
     { key: "impactos", label: "Impactos", icon: Layers },
     { key: "relatorios", label: "Relatórios", icon: BarChart3, disabled: true },
-    ...(isAdmin
-      ? [{ key: "configuracoes" as const, label: "Configurações", icon: Settings }]
-      : []),
+  ];
+
+  const adminItems: Item[] = [
+    { key: "usuarios", label: "Usuários", icon: Users },
+    { key: "configuracoes", label: "Configurações", icon: Settings },
   ];
 
   return (
