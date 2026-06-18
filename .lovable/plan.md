@@ -1,66 +1,81 @@
+# Plano — Finalização do Calendário de Impactos 2026
 
-## Visão geral
+Vou implementar tudo o que falta em um único ciclo, dividido em 4 blocos. Antes de começar quero confirmar o escopo abaixo para evitar retrabalho — é um pacote grande (muitas telas, backend novo, permissões), então qualquer desvio agora economiza horas depois.
 
-Você escolheu "tudo de uma vez", mas a especificação tem 23 seções e introduz um módulo completamente novo (Templates de Fluxo). Para não quebrar nada e manter qualidade visual, vou entregar em **4 fases dentro deste mesmo build**, cada uma terminando em um estado utilizável. Se algo der errado numa fase, podemos rebobinar sem perder as anteriores.
+## Bloco 0 — Ajustes da Fase 1 (sidebar e visão pública)
 
-Backend já confirmado: tudo compartilhado via Lovable Cloud + upload real de logo via Storage.
+- Sidebar **só aparece para usuário logado**. Visitante sem login vê apenas o calendário, header e barra sticky reduzida (sem botões de criação/gestão).
+- Quando o usuário loga, a sidebar inicia **recolhida** (modo ícone) e ele expande manualmente. A preferência fica salva no `localStorage`.
+- Visão pública mostra cards em modo "somente leitura": clique abre o painel de resumo, mas sem editar status/ações.
 
-## Fase 1 — Layout estrutural alinhado ao mockup (seções 1, 2, 15, 16, 17, 22)
+## Bloco 1 — Configurações e identidade visual (Fase 4)
 
-- **Sidebar navegação** (Calendário, Minha área, Conflitos com badge, Impactos, Relatórios, Configurações, Ajuda) usando shadcn Sidebar, colapsível.
-- **Barra sticky no topo do conteúdo** com busca + filtros + botões `Gerenciar obrigações`, `Novo evento`, `Nova obrigação` e slot para botões personalizados do admin. Fundo branco translúcido com leve sombra.
-- **Cards do calendário mais limpos**: chip de status do plano em cores (Em preparação amarelo, Em execução azul, Concluído verde, Atenção laranja), badge de template, ícone de conflito, "Próx. área", contagem "Ações (X/Y)", até 3 chips de ações visíveis + "+N".
-- **Header redesenhado**: logo + nome + subtítulo + sino notificações + chip "Área logada" com avatar.
-- **Todo card clicável** abre painel lateral de resumo (já parcialmente existe — padronizo eventos também).
-- **Cores Keevo**: roxo primário consistente, laranja para alerta/atenção, sem excessos.
+- Nova rota `/admin/configuracoes` (só admin).
+- Bucket público `calendario-assets` no backend + tabela `app_settings` (singleton) com `nome_calendario`, `subtitulo`, `logo_url`, `cor_primaria`.
+- Upload real de logo (PNG/JPG/SVG, ≤ 2 MB) com preview ao vivo.
+- Header passa a ler `app_settings` em vez de constantes; fallback para Keevo.
 
-## Fase 2 — Módulo Templates de Fluxo + Botões personalizados (seções 3–14, 21 parcial)
+## Bloco 2 — Painel Administrativo de Usuários (novo, pedido nesta mensagem)
 
-- **Nova tabela** `templates_fluxo` (compartilhada) com schema completo: identidade do botão, áreas envolvidas, ações padrão, regras de data, dependências, notificações, permissões.
-- **Tabela** `obrigacoes_template_link` para rastrear quais itens vieram de qual template.
-- **Rota `/admin/templates`** (só admin): lista em cards (nome, botão vinculado, áreas, contagem de ações/notificações, status, ações editar/duplicar/desativar).
-- **Wizard de criação** em 7 etapas (accordion):
-  1. Identidade (nome, descrição, ícone Lucide, cor, ordem, ativo)
-  2. Dados padrão (tipo de item, nome sugerido, área principal, periodicidade, data base, criticidade)
-  3. Áreas envolvidas (matriz checkbox: participa / valida / confirma / preenche data / executa / aparece no card / recebe notificação / obrigatória / depende-de)
-  4. Ações padrão (lista editável com nome, área, tipo, data, regra, dependência, notificação, exibir no card)
-  5. Regras de data (6 tipos: fixa, relativa ao evento, mês anterior, dependente de ação, preenchida pela área, recorrente)
-  6. Notificações (antecedência, frequência, atraso, mensagem)
-  7. Prévia + Publicar
-- **Botões personalizados** aparecem na barra sticky (admin cria → vira atalho com ícone e cor). Templates pré-configurados de seed: "Novidades da Versão" (sem Marketing por padrão, dependência Dev→Conteúdos) e "Keevo Live" (semanal, deadline dia 20 do mês anterior, lembretes 10/5/1/dia).
-- **Ao clicar num botão personalizado**: abre criação do item com fluxo pré-preenchido. Usuário área só preenche campos básicos.
-- **Edição de template**: pergunta se aplica em itens existentes (nenhum / em aberto / todos).
-- **Indicador visual** "Criado por template X" no card.
+- Nova rota `/admin/usuarios` (só admin).
+- Lista de usuários com filtros por área e papel.
+- Ações por linha: **editar dados** (nome, e‑mail, área), **resetar senha** (gera nova senha temporária via Admin API), **revogar acesso** (delete user), **promover/rebaixar** entre `admin` / `area` / `viewer`.
+- Convite de novo usuário por e-mail (cria conta + papel + área inicial).
+- Backend:
+  - Tabela `user_roles` com enum `app_role` (admin, area, viewer) + função `has_role` (security definer).
+  - Tabela `profiles` (id ↔ auth.users, nome, area_slug, ativo).
+  - Server functions protegidas com `requireSupabaseAuth` + verificação `has_role(uid, 'admin')`, usando `supabaseAdmin` carregado dentro do handler para as chamadas privilegiadas (reset senha, delete user).
+  - Trigger `on_auth_user_created` cria profile vazio automaticamente.
+- Sidebar ganha seção "Administração" visível só para admin: Configurações, Usuários, Templates.
 
-## Fase 3 — Painéis, Dependências, Conflito e Notificações (seções 10, 11, 18, 19)
+## Bloco 3 — Templates de Fluxo + Botões personalizados (Fase 2)
 
-- **Painel "Ações da sua área"** (redesign do `ImpactDetailDrawer` na aba ações): pergunta "Sua área terá ação para este impacto? Sim/Não", se Sim mostra catálogo de ações pré-preenchidas (12 sugestões) com formulário compacto inline (data, responsável, observação, exibir no card).
-- **Lógica de dependências entre ações**: campo `dependeDe` nas ações; chip "Aguardando: <ação> (<área>)" e bloqueio do botão de concluir até a dependência ser resolvida.
-- **Painel de conflito detalhado**: ao clicar no chip conflito, abre Sheet com Item 1 e Item 2 lado a lado, período, área, próxima área, motivo, e ações: Abrir Item 1, Abrir Item 2, Comparar (split), Marcar como analisado, Reprogramar (atalho para editar data).
-- **Central interna de notificações**: popover no sino do header com lista por área (próximas, atrasadas, bloqueadas, aguardando confirmação). Computada em tempo real do estado (sem nova tabela).
+- Tabelas novas:
+  - `templates_fluxo` (id, nome, descricao, icone, cor, ativo, config jsonb, created_by, created_at).
+  - `obrigacoes_template_link` (obrigacao_id, template_id, criada_em).
+- `config` jsonb guarda: áreas envolvidas, ações padrão, regras de data (6 tipos: data fixa, dia do mês, dia da semana, X dias antes/depois de outro item, recorrência mensal/semanal), dependências entre ações, permissões por área, configurações de notificação.
+- Rota `/admin/templates` (admin):
+  - Lista em cards com badge ativo/inativo, contagem de itens criados.
+  - Wizard de criação em 7 etapas: 1) Identidade, 2) Áreas, 3) Ações padrão, 4) Dependências, 5) Regras de data, 6) Notificações, 7) Permissões & botão personalizado.
+  - Editar template pergunta se aplica alterações em itens existentes (com preview do impacto).
+- Botões personalizados aparecem na **barra sticky** apenas para áreas autorizadas no template; clicar cria uma obrigação pré-preenchida.
+- Seeds embarcados via migration:
+  - "Novidades da Versão" (todas as áreas exceto Marketing, mensal).
+  - "Keevo Live" (semanal, deadline dia 20 do mês anterior).
+- Cards do calendário ganham badge "via template: X" (já preparado na Fase 1, faltava ligar ao dado real).
 
-## Fase 4 — Configurações, Storage e Permissões (seções 20, 21)
+## Bloco 4 — Painéis, dependências, conflito e notificações (Fase 3)
 
-- **Bucket de Storage** `calendario-assets` (público) para logos.
-- **Rota `/admin/configuracoes`** (só admin): formulário com nome do calendário, subtítulo, upload de logo (PNG/JPG/SVG, preview), salvar/restaurar padrão. Persistido em `app_state` (junto com o estado atual).
-- **Header dinâmico**: lê nome/subtítulo/logo das configurações.
-- **Sistema de permissões** aplicado em UI: admin vê tudo (criar/editar/excluir botões, templates, configurações); área vê só o que pode editar (próprias ações, observações, status da área). Botões e itens de menu condicionados por `session.kind`.
+- **Painel "Ações da sua área"** (Sheet a partir de `MyAreaCards`): formulário inline compacto por ação, com:
+  - Status (Pendente, Em andamento, Concluída, Bloqueada).
+  - Campo de observação + anexos (Storage `acoes-anexos`).
+  - Botão concluir desabilitado se houver `dependeDe` ainda não concluída, com tooltip explicando.
+- **Painel de conflito** redesenhado (Sheet comparativo): mostra os dois itens lado a lado, datas em conflito destacadas, próximas áreas pendentes, sugestão de ação (adiar/encaixar/manter) e botão "marcar como resolvido" que escreve em `conflitos_resolvidos`.
+- **Central de notificações** (popover no sino do header):
+  - Tabela `notificacoes` (id, area_destino, tipo, titulo, descricao, obrigacao_id, lida, created_at).
+  - Eventos que geram notificação: nova obrigação atribuída, próxima etapa minha, dependência liberada, conflito novo, prazo em < 7 dias, comentário do admin.
+  - Marca como lida ao clicar; "marcar todas" no rodapé.
+- Server route `/api/public/notify.stage-completed` continua, mas passa também a gravar em `notificacoes`.
 
-## Riscos e mitigação
+## Permissões resumidas
 
-- **Mudanças no modelo de domínio são profundas** (novas estruturas de template, dependências, regras de data). Vou manter compatibilidade: campos novos são opcionais, seed legado continua funcionando via migração no `migrate()`.
-- **Wizard de templates é grande**; vou priorizar entregar funcional com UI guiada — refinamentos de UX virão em iteração se necessário.
-- **Realtime já funciona**, só preciso garantir que as novas tabelas sigam o mesmo padrão.
+| Capacidade | Visitante | Área logada | Admin |
+|---|---|---|---|
+| Ver calendário | ✅ | ✅ | ✅ |
+| Sidebar | ❌ | ✅ | ✅ |
+| Atualizar ações da própria área | ❌ | ✅ | ✅ |
+| Criar obrigação / evento | ❌ | ❌ | ✅ |
+| Gerir templates, botões, config, usuários | ❌ | ❌ | ✅ |
 
-## Ordem de execução neste turno
+## Ordem de execução
 
-Vou começar pela **Fase 1 inteira** (mais visível, menor risco), depois Fase 4 (Storage + Configurações — independente), depois Fase 2 (Templates — maior peça), por fim Fase 3 (Painéis e notificações). Vou pausar entre fases para você poder checar.
+Bloco 0 → 1 → 2 → 3 → 4. Cada bloco entrega rotas e telas funcionais, então mesmo que algo precise de ajuste no fim, o calendário não fica quebrado no meio do caminho.
 
-## Detalhes técnicos
+## Pontos que preciso confirmar antes de codar
 
-- Cards: tokens semânticos novos em `src/styles.css` para status de plano (`--plano-preparacao`, `--plano-execucao`, `--plano-concluido`, `--plano-risco`).
-- Sidebar: `SidebarProvider` no `__root.tsx`, `AppSidebar` em `src/components/AppSidebar.tsx`.
-- Sticky bar: `position: sticky; top: 0; z-index: 30; backdrop-blur` dentro do main.
-- Templates: tabela `templates_fluxo` com JSONB `config` para flexibilidade + colunas indexáveis (nome, ativo, ordem, criado_em). GRANT para authenticated; RLS aberto para read/write inicialmente (admin-only enforced em UI até evoluir auth real).
-- Storage: bucket público `calendario-assets`, política RLS para insert/update apenas via signed upload do admin.
-- Domínio: novos tipos `TemplateFluxo`, `AcaoTemplate`, `RegraData`, `RegraNotificacao`, `DependenciaAcao`. Campo `templateOrigemId?: string` em `Obrigacao` e `Evento`.
+1. **Primeiro admin**: como definir? Sugiro promover automaticamente, via migration, o primeiro usuário cujo e-mail bater com uma lista que você me passar agora (ex.: `seu@email.com`). Sem isso, ninguém entra na área admin depois que ligarmos as permissões reais.
+2. **Reset de senha**: ok gerar uma senha temporária mostrada uma vez ao admin (ele copia e envia), ou prefere disparar e-mail de "definir nova senha" para o usuário?
+3. **Cor primária configurável**: posso deixar o admin trocar a cor de destaque do calendário (roxo Keevo por padrão), ou trava no roxo?
+4. **Visão pública dos templates/conflitos**: visitante vê o badge de "via template" e o ícone de conflito, ou esses indicadores aparecem só para usuários logados?
+
+Responda só esses 4 pontos (ou diga "tanto faz, decide você") e eu já parto para a implementação dos 5 blocos de uma vez.
