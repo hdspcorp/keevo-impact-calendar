@@ -25,8 +25,8 @@ export function Header({ notificacoesCount = 0 }: { notificacoesCount?: number }
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md">
       <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
-        <SidebarTrigger className="-ml-1" />
-        <Separator orientation="vertical" className="hidden h-6 sm:block" />
+        {session && <SidebarTrigger className="-ml-1" />}
+        {session && <Separator orientation="vertical" className="hidden h-6 sm:block" />}
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[14px] font-semibold text-foreground sm:text-[15px]">
             Calendário de Gestão de Impactos 2026

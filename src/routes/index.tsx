@@ -20,18 +20,47 @@ import { detectarConflitos } from "@/lib/conflitos";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
+const SIDEBAR_OPEN_KEY = "keevo-sidebar-open-v1";
+
 export const Route = createFileRoute("/")({
   component: () => (
     <StoreProvider>
-      <SidebarProvider defaultOpen>
-        <Page />
-      </SidebarProvider>
+      <Shell />
       <Toaster position="top-right" richColors />
     </StoreProvider>
   ),
 });
 
-function Page() {
+function Shell() {
+  const { session, hydrated } = useStore();
+  // Sidebar só existe para usuário logado; começa recolhida e persiste preferência.
+  const [open, setOpen] = React.useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = localStorage.getItem(SIDEBAR_OPEN_KEY);
+      return raw === "1";
+    } catch {
+      return false;
+    }
+  });
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_OPEN_KEY, open ? "1" : "0");
+    } catch {}
+  }, [open]);
+
+  if (!session) {
+    // Visitante: sem sidebar nenhuma.
+    return <Page hideSidebar />;
+  }
+  return (
+    <SidebarProvider open={open} onOpenChange={setOpen} defaultOpen={false}>
+      <Page hideSidebar={false} />
+    </SidebarProvider>
+  );
+}
+
+function Page({ hideSidebar }: { hideSidebar: boolean }) {
   const { obrigacoes, eventos, session } = useStore();
   const [filters, setFilters] = React.useState<FilterValues>(DEFAULT_FILTERS);
   const [section, setSection] = React.useState<SidebarSection>("calendario");
@@ -162,17 +191,10 @@ function Page() {
         : section
       : section;
 
-  return (
-    <div className="flex min-h-screen w-full">
-      <AppSidebar
-        active={effectiveSection}
-        conflitosCount={conflitos.length}
-        showMinhaArea={!!userArea}
-        isAdmin={!!isAdmin}
-        onNavigate={handleNavigate}
-      />
-      <SidebarInset className="min-w-0">
-        <Header notificacoesCount={conflitos.length} />
+  const content = (
+    <SidebarInset className="min-w-0">
+      <Header notificacoesCount={conflitos.length} />
+
 
         {/* Barra sticky de ações (apenas logado) */}
         {!isPublic && (
@@ -243,6 +265,22 @@ function Page() {
           />
         )}
       </SidebarInset>
+  );
+
+  if (hideSidebar) {
+    return <div className="flex min-h-screen w-full">{content}</div>;
+  }
+  return (
+    <div className="flex min-h-screen w-full">
+      <AppSidebar
+        active={effectiveSection}
+        conflitosCount={conflitos.length}
+        showMinhaArea={!!userArea}
+        isAdmin={!!isAdmin}
+        onNavigate={handleNavigate}
+      />
+      {content}
     </div>
   );
 }
+
