@@ -1,13 +1,14 @@
 import * as React from "react";
-import { LogOut, ShieldCheck, User } from "lucide-react";
+import { LogOut, ShieldCheck, User, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 import { useStore } from "@/lib/store";
 import { areaNome } from "@/lib/domain";
 import { AreaLoginDialog } from "./AreaLoginDialog";
-import { KeevoLogo } from "./KeevoLogo";
 
-export function Header() {
+export function Header({ notificacoesCount = 0 }: { notificacoesCount?: number }) {
   const { session, logout } = useStore();
   const [loginOpen, setLoginOpen] = React.useState(false);
 
@@ -23,26 +24,40 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-md">
-      <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-6 px-6 py-4">
-        <div className="flex items-center gap-4">
-          <KeevoLogo size={28} />
-          <div className="hidden h-8 w-px bg-border sm:block" />
-          <div className="hidden sm:block">
-            <h1 className="text-base font-semibold text-foreground sm:text-[15px]">
-              Calendário de Gestão de Impactos 2026
-            </h1>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Visão estratégica para antecipação dos principais temas do ano.
-            </p>
-          </div>
+      <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="hidden h-6 sm:block" />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[14px] font-semibold text-foreground sm:text-[15px]">
+            Calendário de Gestão de Impactos 2026
+          </h1>
+          <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
+            Planeje, acompanhe e execute os principais temas do ano.
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {session && (
+            <button
+              type="button"
+              className="relative grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+              title="Notificações"
+              aria-label="Notificações"
+            >
+              <Bell className="h-4 w-4" />
+              {notificacoesCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-semibold text-accent-foreground">
+                  {notificacoesCount > 9 ? "9+" : notificacoesCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {session ? (
             <>
-              <div className="hidden flex-col items-end sm:flex">
-                <span className="text-sm font-medium text-foreground">{session.nome}</span>
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <div className="hidden flex-col items-end leading-tight sm:flex">
+                <span className="text-[12px] font-semibold text-foreground">{session.nome}</span>
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                   {session.kind === "admin" ? (
                     <>
                       <ShieldCheck className="h-3 w-3 text-primary" /> Administrador
@@ -53,7 +68,7 @@ export function Header() {
                 </span>
               </div>
               <Avatar className="h-9 w-9 border border-border bg-secondary">
-                <AvatarFallback className="bg-secondary text-xs font-semibold text-primary">
+                <AvatarFallback className="bg-secondary text-[11px] font-semibold text-primary">
                   {initials}
                 </AvatarFallback>
               </Avatar>
