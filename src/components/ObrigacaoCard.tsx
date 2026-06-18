@@ -97,10 +97,12 @@ export function ObrigacaoCard({
       </div>
 
       {prox && (
-        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-foreground">
-          <ArrowRight className="h-2.5 w-2.5 text-primary" />
-          próxima:{" "}
-          <span className="font-medium text-foreground">{areaNome(prox)}</span>
+        <div className="mt-1.5 flex items-center gap-1 text-[10px]">
+          <span className="text-muted-foreground">Próxima área:</span>
+          <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+            <ArrowRight className="h-2.5 w-2.5" />
+            {areaNome(prox)}
+          </span>
         </div>
       )}
     </button>
