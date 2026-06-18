@@ -7,9 +7,16 @@ import { Separator } from "@/components/ui/separator";
 import { useStore } from "@/lib/store";
 import { areaNome } from "@/lib/domain";
 import { AreaLoginDialog } from "./AreaLoginDialog";
+import { KeevoLogo } from "./KeevoLogo";
 
-export function Header({ notificacoesCount = 0 }: { notificacoesCount?: number }) {
-  const { session, logout } = useStore();
+export function Header({
+  notificacoesCount = 0,
+  onOpenNotificacoes,
+}: {
+  notificacoesCount?: number;
+  onOpenNotificacoes?: () => void;
+}) {
+  const { session, logout, settings } = useStore();
   const [loginOpen, setLoginOpen] = React.useState(false);
 
   const initials = React.useMemo(() => {
@@ -27,19 +34,30 @@ export function Header({ notificacoesCount = 0 }: { notificacoesCount?: number }
       <div className="flex h-14 items-center gap-3 px-4 sm:px-6">
         {session && <SidebarTrigger className="-ml-1" />}
         {session && <Separator orientation="vertical" className="hidden h-6 sm:block" />}
+        {!session && (
+          <div className="flex items-center gap-2">
+            {settings.logoDataUrl ? (
+              <img src={settings.logoDataUrl} alt="" className="h-8 max-w-[140px] object-contain" />
+            ) : (
+              <KeevoLogo size={26} />
+            )}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-[14px] font-semibold text-foreground sm:text-[15px]">
-            Calendário de Gestão de Impactos 2026
+            {settings.nomeCalendario}
           </h1>
           <p className="hidden truncate text-[11px] text-muted-foreground sm:block">
-            Planeje, acompanhe e execute os principais temas do ano.
+            {settings.subtitulo}
           </p>
         </div>
+
 
         <div className="flex items-center gap-2 sm:gap-3">
           {session && (
             <button
               type="button"
+              onClick={onOpenNotificacoes}
               className="relative grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
               title="Notificações"
               aria-label="Notificações"

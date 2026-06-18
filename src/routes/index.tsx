@@ -14,6 +14,9 @@ import { ImpactDetailDrawer } from "@/components/ImpactDetailDrawer";
 import { NewObrigacaoDrawer } from "@/components/NewObrigacaoDrawer";
 import { NewEventoDrawer } from "@/components/NewEventoDrawer";
 import { ManageTemplatesDrawer } from "@/components/ManageTemplatesDrawer";
+import { AdminUsersPage } from "@/components/admin/AdminUsersPage";
+import { AdminSettingsPage } from "@/components/admin/AdminSettingsPage";
+import { ConflitosDrawer } from "@/components/ConflitosDrawer";
 import { AreaSlug, Obrigacao } from "@/lib/domain";
 import { isAreaAvaliada, proximaPendente } from "@/lib/store";
 import { detectarConflitos } from "@/lib/conflitos";
@@ -32,7 +35,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Shell() {
-  const { session, hydrated } = useStore();
+  const { session, settings } = useStore();
   // Sidebar só existe para usuário logado; começa recolhida e persiste preferência.
   const [open, setOpen] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -49,8 +52,16 @@ function Shell() {
     } catch {}
   }, [open]);
 
+  // Aplica cor primária configurada no :root.
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.style.setProperty(
+      "--primary",
+      `oklch(${settings.corPrimaria})`
+    );
+  }, [settings.corPrimaria]);
+
   if (!session) {
-    // Visitante: sem sidebar nenhuma.
     return <Page hideSidebar />;
   }
   return (
@@ -154,13 +165,24 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
     }
   }, [drill, obrigacoes]);
 
+  const [conflitosOpen, setConflitosOpen] = React.useState(false);
+  const [adminPage, setAdminPage] = React.useState<"usuarios" | "configuracoes" | null>(null);
+
   const handleNavigate = (s: SidebarSection) => {
     if (s === "minha-area" && !userArea) {
       toast.info("Faça login com um usuário de área para acessar a Minha área.");
       return;
     }
     if (s === "configuracoes") {
-      toast.info("Configurações do calendário chegam na Fase 4.");
+      if (!isAdmin) return;
+      setAdminPage("configuracoes");
+      setSection("configuracoes");
+      return;
+    }
+    if (s === "usuarios") {
+      if (!isAdmin) return;
+      setAdminPage("usuarios");
+      setSection("usuarios");
       return;
     }
     if (s === "relatorios") {
@@ -172,14 +194,10 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
       return;
     }
     if (s === "conflitos") {
-      // por enquanto: avisa quantos e mantém na visão atual
-      toast.info(
-        conflitos.length
-          ? `${conflitos.length} conflito(s) detectado(s) — painel detalhado vem na Fase 3.`
-          : "Sem conflitos no momento."
-      );
+      setConflitosOpen(true);
       return;
     }
+    setAdminPage(null);
     setSection(s);
   };
 
@@ -191,81 +209,97 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
         : section
       : section;
 
+  const showCalendario = adminPage === null;
+
   const content = (
     <SidebarInset className="min-w-0">
-      <Header notificacoesCount={conflitos.length} />
+      <Header notificacoesCount={conflitos.length} onOpenNotificacoes={() => setConflitosOpen(true)} />
 
-
-        {/* Barra sticky de ações (apenas logado) */}
-        {!isPublic && (
-          <div className="sticky top-14 z-20 border-b border-border/60 bg-background/85 backdrop-blur-md">
-            <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-2.5 sm:px-6">
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => setTplOpen(true)}
-              >
-                <Settings2 className="h-4 w-4" />
-                Gerenciar obrigações
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() => setEvtOpen(true)}
-              >
-                <CalendarPlus className="h-4 w-4" />
-                Novo evento
-              </Button>
-              <Button size="sm" className="gap-2" onClick={() => setNewOpen(true)}>
-                <Plus className="h-4 w-4" />
-                Nova obrigação
-              </Button>
-            </div>
+      {/* Barra sticky de ações — apenas admin pode criar */}
+      {isAdmin && showCalendario && (
+        <div className="sticky top-14 z-20 border-b border-border/60 bg-background/85 backdrop-blur-md">
+          <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-2.5 sm:px-6">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setTplOpen(true)}
+            >
+              <Settings2 className="h-4 w-4" />
+              Gerenciar obrigações
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() => setEvtOpen(true)}
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Novo evento
+            </Button>
+            <Button size="sm" className="gap-2" onClick={() => setNewOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Nova obrigação
+            </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        <main className="mx-auto w-full max-w-[1500px] space-y-5 px-4 py-5 sm:px-6">
-          {isMinhaArea && userArea && (
-            <MyAreaCards
-              area={userArea}
-              obrigacoes={obrigacoes}
-              eventos={eventos}
-              onDrill={setDrill}
+      <main className="mx-auto w-full max-w-[1500px] space-y-5 px-4 py-5 sm:px-6">
+        {adminPage === "usuarios" && <AdminUsersPage />}
+        {adminPage === "configuracoes" && <AdminSettingsPage />}
+
+        {showCalendario && (
+          <>
+            {isMinhaArea && userArea && (
+              <MyAreaCards
+                area={userArea}
+                obrigacoes={obrigacoes}
+                eventos={eventos}
+                onDrill={setDrill}
+              />
+            )}
+
+            <Filters value={filters} onChange={setFilters} />
+
+            <CalendarGrid
+              obrigacoes={calendarItems}
+              eventos={eventosVisiveis}
+              onSelect={(o) => setSelected(o)}
             />
-          )}
-
-          <Filters value={filters} onChange={setFilters} />
-
-          <CalendarGrid
-            obrigacoes={calendarItems}
-            eventos={eventosVisiveis}
-            onSelect={(o) => setSelected(o)}
-          />
-        </main>
-
-        <ImpactDetailDrawer
-          obrigacao={selected}
-          open={!!selected}
-          onOpenChange={(v) => !v && setSelected(null)}
-        />
-        <NewObrigacaoDrawer open={newOpen} onOpenChange={setNewOpen} />
-        <NewEventoDrawer open={evtOpen} onOpenChange={setEvtOpen} />
-        <ManageTemplatesDrawer open={tplOpen} onOpenChange={setTplOpen} />
-
-        {userArea && (
-          <AreaItemsDrawer
-            drill={drill}
-            area={userArea}
-            obrigacoes={obrigacoes}
-            eventos={eventos}
-            onOpenObrigacao={(o) => setSelected(o)}
-            onOpenChange={(v) => !v && setDrill(null)}
-          />
+          </>
         )}
-      </SidebarInset>
+      </main>
+
+      <ImpactDetailDrawer
+        obrigacao={selected}
+        open={!!selected}
+        onOpenChange={(v) => !v && setSelected(null)}
+      />
+      <NewObrigacaoDrawer open={newOpen} onOpenChange={setNewOpen} />
+      <NewEventoDrawer open={evtOpen} onOpenChange={setEvtOpen} />
+      <ManageTemplatesDrawer open={tplOpen} onOpenChange={setTplOpen} />
+      <ConflitosDrawer
+        open={conflitosOpen}
+        onOpenChange={setConflitosOpen}
+        conflitos={conflitos}
+        obrigacoes={obrigacoes}
+        onOpenObrigacao={(o) => setSelected(o)}
+      />
+
+      {userArea && (
+        <AreaItemsDrawer
+          drill={drill}
+          area={userArea}
+          obrigacoes={obrigacoes}
+          eventos={eventos}
+          onOpenObrigacao={(o) => setSelected(o)}
+          onOpenChange={(v) => !v && setDrill(null)}
+        />
+      )}
+    </SidebarInset>
   );
+
 
   if (hideSidebar) {
     return <div className="flex min-h-screen w-full">{content}</div>;

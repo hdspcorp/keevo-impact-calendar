@@ -7,6 +7,7 @@ import {
   BarChart3,
   Settings,
   HelpCircle,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -14,6 +15,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -22,6 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { KeevoLogo } from "./KeevoLogo";
 import { cn } from "@/lib/utils";
+import { useStore } from "@/lib/store";
 
 export type SidebarSection =
   | "calendario"
@@ -30,6 +33,7 @@ export type SidebarSection =
   | "impactos"
   | "relatorios"
   | "configuracoes"
+  | "usuarios"
   | "ajuda";
 
 type Item = {
@@ -38,8 +42,6 @@ type Item = {
   icon: React.ComponentType<{ className?: string }>;
   badge?: number;
   disabled?: boolean;
-  adminOnly?: boolean;
-  areaOnly?: boolean;
 };
 
 export function AppSidebar({
@@ -57,6 +59,7 @@ export function AppSidebar({
 }) {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
+  const { settings } = useStore();
 
   const items: Item[] = [
     { key: "calendario", label: "Calendário", icon: CalendarIcon },
@@ -66,9 +69,11 @@ export function AppSidebar({
     { key: "conflitos", label: "Conflitos", icon: AlertTriangle, badge: conflitosCount },
     { key: "impactos", label: "Impactos", icon: Layers },
     { key: "relatorios", label: "Relatórios", icon: BarChart3, disabled: true },
-    ...(isAdmin
-      ? [{ key: "configuracoes" as const, label: "Configurações", icon: Settings }]
-      : []),
+  ];
+
+  const adminItems: Item[] = [
+    { key: "usuarios", label: "Usuários", icon: Users },
+    { key: "configuracoes", label: "Configurações", icon: Settings },
   ];
 
   return (
@@ -81,15 +86,23 @@ export function AppSidebar({
           )}
         >
           {collapsed ? (
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-[15px] font-bold text-primary-foreground">
-              K
-            </div>
+            settings.logoDataUrl ? (
+              <img src={settings.logoDataUrl} alt="" className="h-9 w-9 rounded-xl object-contain" />
+            ) : (
+              <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-[15px] font-bold text-primary-foreground">
+                K
+              </div>
+            )
+          ) : settings.logoDataUrl ? (
+            <img src={settings.logoDataUrl} alt="" className="h-7 max-w-[120px] object-contain" />
           ) : (
             <KeevoLogo size={26} />
           )}
           {!collapsed && (
             <div className="ml-1 leading-tight">
-              <div className="text-[13px] font-semibold text-sidebar-foreground">Keevo</div>
+              <div className="text-[13px] font-semibold text-sidebar-foreground">
+                {settings.logoDataUrl ? "" : "Keevo"}
+              </div>
               <div className="text-[10px] text-sidebar-foreground/60">Impactos 2026</div>
             </div>
           )}
@@ -107,10 +120,7 @@ export function AppSidebar({
                     disabled={item.disabled}
                     onClick={() => !item.disabled && onNavigate(item.key)}
                     tooltip={item.label}
-                    className={cn(
-                      "gap-2.5",
-                      item.disabled && "opacity-50"
-                    )}
+                    className={cn("gap-2.5", item.disabled && "opacity-50")}
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
                     <span className="truncate">{item.label}</span>
@@ -125,7 +135,31 @@ export function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {isAdmin && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>Administração</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminItems.map((item) => (
+                  <SidebarMenuItem key={item.key}>
+                    <SidebarMenuButton
+                      isActive={active === item.key}
+                      onClick={() => onNavigate(item.key)}
+                      tooltip={item.label}
+                      className="gap-2.5"
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
+
 
       <SidebarFooter className="border-t border-sidebar-border/60">
         <SidebarMenu>

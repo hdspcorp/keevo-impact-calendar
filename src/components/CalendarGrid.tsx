@@ -72,7 +72,7 @@ export function CalendarGrid({
                     key={o.id}
                     o={o}
                     onClick={() => onSelect(o)}
-                    hasConflict={conflitos.length > 0}
+                    hasConflict={!!session && conflitos.length > 0}
                   />
                 );
               })}
