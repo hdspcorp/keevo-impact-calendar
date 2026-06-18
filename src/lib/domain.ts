@@ -474,6 +474,7 @@ export type MockUser = {
 };
 
 export const MOCK_USERS: MockUser[] = [
+  { email: "ADMIN", pass: "ADMIN", nome: "Administrador Master", kind: "admin" },
   { email: "admin@keevo.com", pass: "admin", nome: "Administrador Keevo", kind: "admin" },
   { email: "nexus@keevo.com", pass: "nexus", nome: "Ana (NEXUS)", kind: "area", area: "nexus" },
   { email: "desenvolvimento@keevo.com", pass: "desenvolvimento", nome: "Carlos (Desenvolvimento)", kind: "area", area: "desenvolvimento" },
@@ -481,3 +482,30 @@ export const MOCK_USERS: MockUser[] = [
   { email: "marketing@keevo.com", pass: "marketing", nome: "Diana (Marketing)", kind: "area", area: "marketing" },
   { email: "operacoes@keevo.com", pass: "operacoes", nome: "Eduardo (Operações)", kind: "area", area: "operacoes" },
 ];
+
+// ---------- USUÁRIOS GERENCIÁVEIS (persistidos) ----------
+export type UsuarioGerenciado = {
+  id: string;
+  email: string;
+  pass: string;
+  nome: string;
+  kind: "admin" | "area";
+  area?: AreaSlug;
+  ativo: boolean;
+  criadoEm: string;
+};
+
+// ---------- CONFIGURAÇÕES DO CALENDÁRIO ----------
+export type AppSettings = {
+  nomeCalendario: string;
+  subtitulo: string;
+  logoDataUrl: string | null; // base64; null = usa KeevoLogo
+  corPrimaria: string; // HSL string, ex.: "262 83% 58%"
+};
+
+export const DEFAULT_APP_SETTINGS: AppSettings = {
+  nomeCalendario: "Calendário de Gestão de Impactos 2026",
+  subtitulo: "Planeje, acompanhe e execute os principais temas do ano.",
+  logoDataUrl: null,
+  corPrimaria: "262 83% 58%",
+};
