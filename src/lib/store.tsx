@@ -16,6 +16,9 @@ import {
   Acao,
   HistoricoEntry,
   MOCK_USERS,
+  UsuarioGerenciado,
+  AppSettings,
+  DEFAULT_APP_SETTINGS,
 } from "./domain";
 import { supabase } from "@/integrations/supabase/client";
 import { notifyStageCompleted } from "./notifications/client";
@@ -30,6 +33,8 @@ type Persisted = {
   obrigacoes: Obrigacao[];
   templates: ChecklistTemplate[];
   eventos: Evento[];
+  usuarios: UsuarioGerenciado[];
+  settings: AppSettings;
 };
 
 type State = Persisted & { session: Session };
