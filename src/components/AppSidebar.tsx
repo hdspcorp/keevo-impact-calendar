@@ -8,6 +8,7 @@ import {
   Settings,
   HelpCircle,
   Users,
+  ListChecks,
 } from "lucide-react";
 import {
   Sidebar,
