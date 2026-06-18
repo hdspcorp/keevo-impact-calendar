@@ -57,7 +57,11 @@ export function Header({
           {session && (
             <button
               type="button"
+              onClick={onOpenNotificacoes}
               className="relative grid h-9 w-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-accent/10 hover:text-foreground"
+              title="Notificações"
+              aria-label="Notificações"
+            >
               title="Notificações"
               aria-label="Notificações"
             >
