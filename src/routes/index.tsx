@@ -191,17 +191,10 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
         : section
       : section;
 
-  return (
-    <div className="flex min-h-screen w-full">
-      <AppSidebar
-        active={effectiveSection}
-        conflitosCount={conflitos.length}
-        showMinhaArea={!!userArea}
-        isAdmin={!!isAdmin}
-        onNavigate={handleNavigate}
-      />
-      <SidebarInset className="min-w-0">
-        <Header notificacoesCount={conflitos.length} />
+  const content = (
+    <SidebarInset className="min-w-0">
+      <Header notificacoesCount={conflitos.length} />
+
 
         {/* Barra sticky de ações (apenas logado) */}
         {!isPublic && (
