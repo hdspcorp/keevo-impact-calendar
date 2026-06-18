@@ -80,11 +80,15 @@ export function AppSidebar({
             collapsed && "justify-center px-0"
           )}
         >
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground">
-            <KeevoLogo size={20} variant="mark" />
-          </div>
+          {collapsed ? (
+            <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-[15px] font-bold text-primary-foreground">
+              K
+            </div>
+          ) : (
+            <KeevoLogo size={26} />
+          )}
           {!collapsed && (
-            <div className="leading-tight">
+            <div className="ml-1 leading-tight">
               <div className="text-[13px] font-semibold text-sidebar-foreground">Keevo</div>
               <div className="text-[10px] text-sidebar-foreground/60">Impactos 2026</div>
             </div>
