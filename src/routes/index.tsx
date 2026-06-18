@@ -20,16 +20,45 @@ import { detectarConflitos } from "@/lib/conflitos";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 
+const SIDEBAR_OPEN_KEY = "keevo-sidebar-open-v1";
+
 export const Route = createFileRoute("/")({
   component: () => (
     <StoreProvider>
-      <SidebarProvider defaultOpen>
-        <Page />
-      </SidebarProvider>
+      <Shell />
       <Toaster position="top-right" richColors />
     </StoreProvider>
   ),
 });
+
+function Shell() {
+  const { session, hydrated } = useStore();
+  // Sidebar só existe para usuário logado; começa recolhida e persiste preferência.
+  const [open, setOpen] = React.useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = localStorage.getItem(SIDEBAR_OPEN_KEY);
+      return raw === "1";
+    } catch {
+      return false;
+    }
+  });
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_OPEN_KEY, open ? "1" : "0");
+    } catch {}
+  }, [open]);
+
+  if (!session) {
+    // Visitante: sem sidebar nenhuma.
+    return <Page hideSidebar />;
+  }
+  return (
+    <SidebarProvider open={open} onOpenChange={setOpen} defaultOpen={false}>
+      <Page hideSidebar={false} />
+    </SidebarProvider>
+  );
+}
 
 function Page() {
   const { obrigacoes, eventos, session } = useStore();
