@@ -60,7 +60,7 @@ function Shell() {
   );
 }
 
-function Page() {
+function Page({ hideSidebar }: { hideSidebar: boolean }) {
   const { obrigacoes, eventos, session } = useStore();
   const [filters, setFilters] = React.useState<FilterValues>(DEFAULT_FILTERS);
   const [section, setSection] = React.useState<SidebarSection>("calendario");
