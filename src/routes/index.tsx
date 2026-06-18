@@ -35,7 +35,7 @@ export const Route = createFileRoute("/")({
 });
 
 function Shell() {
-  const { session, hydrated } = useStore();
+  const { session, settings } = useStore();
   // Sidebar só existe para usuário logado; começa recolhida e persiste preferência.
   const [open, setOpen] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -52,8 +52,16 @@ function Shell() {
     } catch {}
   }, [open]);
 
+  // Aplica cor primária configurada no :root.
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    document.documentElement.style.setProperty(
+      "--primary",
+      `oklch(${settings.corPrimaria})`
+    );
+  }, [settings.corPrimaria]);
+
   if (!session) {
-    // Visitante: sem sidebar nenhuma.
     return <Page hideSidebar />;
   }
   return (
