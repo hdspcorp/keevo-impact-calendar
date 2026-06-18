@@ -130,6 +130,8 @@ function migrate(p: Partial<Persisted> | null | undefined): Persisted {
     obrigacoes,
     templates: p?.templates ?? DEFAULT_TEMPLATES,
     eventos: p?.eventos ?? SEED_EVENTOS,
+    usuarios: p?.usuarios ?? [],
+    settings: { ...DEFAULT_APP_SETTINGS, ...(p?.settings ?? {}) },
   };
 }
 
