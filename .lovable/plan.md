@@ -1,85 +1,66 @@
 
-## 1. Backend (Lovable Cloud) — resolve dados não compartilhados
+## Visão geral
 
-Ativar Cloud e migrar o store de `localStorage` para Postgres com RLS. Auth simples por e-mail/senha (admin@keevo.com, nexus@keevo.com, etc. seedados).
+Você escolheu "tudo de uma vez", mas a especificação tem 23 seções e introduz um módulo completamente novo (Templates de Fluxo). Para não quebrar nada e manter qualidade visual, vou entregar em **4 fases dentro deste mesmo build**, cada uma terminando em um estado utilizável. Se algo der errado numa fase, podemos rebobinar sem perder as anteriores.
 
-Tabelas (schema `public`, com GRANTs + RLS):
-- `obrigacoes` — campos atuais do tipo `Obrigacao` + `requer_validacao_nexus boolean default true`.
-- `impactos` — vinculados a obrigações.
-- `area_status` — status/histórico por área por impacto (substitui campos in-memory).
-- `acoes_template` — checklist padrão por área (compartilhado).
-- `acoes_impacto` — itens de checklist instanciados por impacto/área, com `selecionada`, `concluida`, `responsavel`, `custom`.
-- `eventos` — novo: id, titulo, area, tipo, data_inicio, data_fim, descricao, responsavel, relevancia, gera_conflito, observacoes, criado_em, criado_por.
-- `notificacoes_enviadas` — dedup de disparos (chave: `impacto_id + area_origem + area_destino + etapa`).
-- `user_roles` (app_role enum: admin, nexus, area_user) + função `has_role`.
+Backend já confirmado: tudo compartilhado via Lovable Cloud + upload real de logo via Storage.
 
-Políticas: leitura autenticada ampla (sistema interno); escrita restrita por área via `has_role`/`raw_user_meta_data.area`. Admin tudo.
+## Fase 1 — Layout estrutural alinhado ao mockup (seções 1, 2, 15, 16, 17, 22)
 
-Server functions (`src/lib/*.functions.ts`) substituem mutações do store: `listObrigacoes`, `upsertObrigacao`, `listEventos`, `upsertEvento`, `deleteEvento`, `concluirArea`, `marcarSemAcao`, `toggleAcao`, `addAcaoCustom`, `promoverParaTemplate`, `listNotificacoesEnviadas`. Cada uma com `requireSupabaseAuth`.
+- **Sidebar navegação** (Calendário, Minha área, Conflitos com badge, Impactos, Relatórios, Configurações, Ajuda) usando shadcn Sidebar, colapsível.
+- **Barra sticky no topo do conteúdo** com busca + filtros + botões `Gerenciar obrigações`, `Novo evento`, `Nova obrigação` e slot para botões personalizados do admin. Fundo branco translúcido com leve sombra.
+- **Cards do calendário mais limpos**: chip de status do plano em cores (Em preparação amarelo, Em execução azul, Concluído verde, Atenção laranja), badge de template, ícone de conflito, "Próx. área", contagem "Ações (X/Y)", até 3 chips de ações visíveis + "+N".
+- **Header redesenhado**: logo + nome + subtítulo + sino notificações + chip "Área logada" com avatar.
+- **Todo card clicável** abre painel lateral de resumo (já parcialmente existe — padronizo eventos também).
+- **Cores Keevo**: roxo primário consistente, laranja para alerta/atenção, sem excessos.
 
-Store passa a ser um wrapper React Query (`useQuery` + `useMutation` com invalidação) — API pública mantém os mesmos hooks usados hoje pelos componentes para minimizar refactor.
+## Fase 2 — Módulo Templates de Fluxo + Botões personalizados (seções 3–14, 21 parcial)
 
-## 2. Notificação Discord (multi-canal, seguro)
+- **Nova tabela** `templates_fluxo` (compartilhada) com schema completo: identidade do botão, áreas envolvidas, ações padrão, regras de data, dependências, notificações, permissões.
+- **Tabela** `obrigacoes_template_link` para rastrear quais itens vieram de qual template.
+- **Rota `/admin/templates`** (só admin): lista em cards (nome, botão vinculado, áreas, contagem de ações/notificações, status, ações editar/duplicar/desativar).
+- **Wizard de criação** em 7 etapas (accordion):
+  1. Identidade (nome, descrição, ícone Lucide, cor, ordem, ativo)
+  2. Dados padrão (tipo de item, nome sugerido, área principal, periodicidade, data base, criticidade)
+  3. Áreas envolvidas (matriz checkbox: participa / valida / confirma / preenche data / executa / aparece no card / recebe notificação / obrigatória / depende-de)
+  4. Ações padrão (lista editável com nome, área, tipo, data, regra, dependência, notificação, exibir no card)
+  5. Regras de data (6 tipos: fixa, relativa ao evento, mês anterior, dependente de ação, preenchida pela área, recorrente)
+  6. Notificações (antecedência, frequência, atraso, mensagem)
+  7. Prévia + Publicar
+- **Botões personalizados** aparecem na barra sticky (admin cria → vira atalho com ícone e cor). Templates pré-configurados de seed: "Novidades da Versão" (sem Marketing por padrão, dependência Dev→Conteúdos) e "Keevo Live" (semanal, deadline dia 20 do mês anterior, lembretes 10/5/1/dia).
+- **Ao clicar num botão personalizado**: abre criação do item com fluxo pré-preenchido. Usuário área só preenche campos básicos.
+- **Edição de template**: pergunta se aplica em itens existentes (nenhum / em aberto / todos).
+- **Indicador visual** "Criado por template X" no card.
 
-- Secret `DISCORD_WEBHOOK_URL` via `add_secret`.
-- `src/lib/notifications/dispatcher.server.ts`: interface `NotificationChannel { send(payload) }`, implementação `discordChannel` (fetch ao webhook). Estrutura permite adicionar `emailChannel` depois sem refactor.
-- `dispatchStageCompleted({ impactoId, areaOrigem, areaDestino, ... })`: monta payload (card, ação esperada, prazo, prioridade, link `/?impacto=ID`, timestamp), checa `notificacoes_enviadas`, envia, registra.
-- Chamado dentro de `concluirArea` / `marcarSemAcao` server-side (fire-and-forget com try/catch logado).
-- Nenhum webhook no bundle do cliente.
+## Fase 3 — Painéis, Dependências, Conflito e Notificações (seções 10, 11, 18, 19)
 
-## 3. Novo Dashboard estratégico (substitui `AreaProgressPanel`)
+- **Painel "Ações da sua área"** (redesign do `ImpactDetailDrawer` na aba ações): pergunta "Sua área terá ação para este impacto? Sim/Não", se Sim mostra catálogo de ações pré-preenchidas (12 sugestões) com formulário compacto inline (data, responsável, observação, exibir no card).
+- **Lógica de dependências entre ações**: campo `dependeDe` nas ações; chip "Aguardando: <ação> (<área>)" e bloqueio do botão de concluir até a dependência ser resolvida.
+- **Painel de conflito detalhado**: ao clicar no chip conflito, abre Sheet com Item 1 e Item 2 lado a lado, período, área, próxima área, motivo, e ações: Abrir Item 1, Abrir Item 2, Comparar (split), Marcar como analisado, Reprogramar (atalho para editar data).
+- **Central interna de notificações**: popover no sino do header com lista por área (próximas, atrasadas, bloqueadas, aguardando confirmação). Computada em tempo real do estado (sem nova tabela).
 
-Componente `src/components/dashboard/Dashboard.tsx` com tabs:
+## Fase 4 — Configurações, Storage e Permissões (seções 20, 21)
 
-**Resumo** — KPIs absorvendo os 4 cards atuais (`SummaryCards` deixa de ser renderizado solto) + Ações atrasadas, Conflitos, Próximas áreas pendentes, Cards sem NEXUS.
+- **Bucket de Storage** `calendario-assets` (público) para logos.
+- **Rota `/admin/configuracoes`** (só admin): formulário com nome do calendário, subtítulo, upload de logo (PNG/JPG/SVG, preview), salvar/restaurar padrão. Persistido em `app_state` (junto com o estado atual).
+- **Header dinâmico**: lê nome/subtítulo/logo das configurações.
+- **Sistema de permissões** aplicado em UI: admin vê tudo (criar/editar/excluir botões, templates, configurações); área vê só o que pode editar (próprias ações, observações, status da área). Botões e itens de menu condicionados por `session.kind`.
 
-**Alertas** — lista priorizada de conflitos detectados por `detectarConflitos()`:
-- `marketing-overlap` (ação no mesmo período de evento Marketing),
-- `multi-area` (≥2 áreas com ação relevante no período),
-- `vencimento-sem-acao` (obrigação ≤30d sem ação marcada),
-- `dependencia-longa` (>14d aguardando mesma área),
-- `sem-responsavel`.
+## Riscos e mitigação
 
-**Próximas Ações** — tabela compacta (item, área, prazo, status, prioridade) com ordenação por urgência.
+- **Mudanças no modelo de domínio são profundas** (novas estruturas de template, dependências, regras de data). Vou manter compatibilidade: campos novos são opcionais, seed legado continua funcionando via migração no `migrate()`.
+- **Wizard de templates é grande**; vou priorizar entregar funcional com UI guiada — refinamentos de UX virão em iteração se necessário.
+- **Realtime já funciona**, só preciso garantir que as novas tabelas sigam o mesmo padrão.
 
-**Fluxo** — por obrigação: última área que atuou + próxima pendente + data movimentação.
+## Ordem de execução neste turno
 
-Filtros locais no topo: período, área, tipo evento, status, prioridade, conflito, requer NEXUS, eventos Marketing, vencendo em 60d.
+Vou começar pela **Fase 1 inteira** (mais visível, menor risco), depois Fase 4 (Storage + Configurações — independente), depois Fase 2 (Templates — maior peça), por fim Fase 3 (Painéis e notificações). Vou pausar entre fases para você poder checar.
 
-## 4. Eventos por área
+## Detalhes técnicos
 
-- `NewEventoDrawer.tsx` (CRUD) + botão "Novo evento" no header.
-- `EventoCard.tsx` — visual distinto de obrigação; Marketing recebe ícone `Megaphone` + borda laranja Keevo.
-- `CalendarGrid.tsx` — renderiza eventos junto às obrigações, com ícone `AlertTriangle` quando há conflito detectado.
-
-## 5. Cards de impacto sem NEXUS
-
-- `NewObrigacaoDrawer` e `ImpactDetailDrawer`: Switch "Requer validação do NEXUS?" com texto auxiliar.
-- `StatusTrail`: oculta etapa NEXUS quando `false`.
-- `ObrigacaoCard`: badge discreta "Sem validação NEXUS".
-- `proximaPendente()` e fluxo de notificação pulam NEXUS automaticamente.
-
-## 6. Cards do calendário mais enxutos (densidade média)
-
-Refactor de `ObrigacaoCard.tsx` e `EventoCard.tsx`:
-- Padding reduzido (`p-2`), tipografia menor (`text-xs` no título, `text-[10px]` em metadados).
-- Badges compactos: substituir labels longos por ícones com tooltip (estrela roxa NEXUS, alerta de conflito, sem-NEXUS).
-- Uma linha de título + uma linha de metadados (área | prazo) + faixa lateral colorida por status. Sem repetição visual.
-
-## 7. Arquivos a tocar
-
-Criar: 12 server fns (`*.functions.ts`), migration SQL, `Dashboard.tsx` + 4 sub-tabs, `NewEventoDrawer.tsx`, `EventoCard.tsx`, `notifications/*`, `useEventos.ts`, `useObrigacoes.ts`.
-Editar: `store.tsx` (vira React Query wrapper), `routes/index.tsx`, `CalendarGrid.tsx`, `ObrigacaoCard.tsx`, `NewObrigacaoDrawer.tsx`, `ImpactDetailDrawer.tsx`, `StatusTrail.tsx`, `Header.tsx`, `Filters.tsx`, `start.ts` (attacher), `domain.ts` (tipos), `AreaLoginDialog.tsx` (passa a usar Supabase auth).
-Remover: `AreaProgressPanel.tsx`, render solto de `SummaryCards` no index.
-
-## 8. Ordem de execução
-
-1. Ativar Cloud + migration + seeds + auth.
-2. Server fns + React Query wrapper no store (mantendo API).
-3. Dashboard novo + remoção de `AreaProgressPanel`/`SummaryCards` solto.
-4. Eventos (drawer + card + calendar integration + conflitos).
-5. Toggle "Requer NEXUS" + ajustes de fluxo.
-6. Cards mais enxutos (densidade média).
-7. Discord (secret + dispatcher + hook nas mutações).
-
-Depois do plano aprovado, peço o `DISCORD_WEBHOOK_URL` via `add_secret` no momento certo (passo 7) — não junto com a ativação do Cloud.
+- Cards: tokens semânticos novos em `src/styles.css` para status de plano (`--plano-preparacao`, `--plano-execucao`, `--plano-concluido`, `--plano-risco`).
+- Sidebar: `SidebarProvider` no `__root.tsx`, `AppSidebar` em `src/components/AppSidebar.tsx`.
+- Sticky bar: `position: sticky; top: 0; z-index: 30; backdrop-blur` dentro do main.
+- Templates: tabela `templates_fluxo` com JSONB `config` para flexibilidade + colunas indexáveis (nome, ativo, ordem, criado_em). GRANT para authenticated; RLS aberto para read/write inicialmente (admin-only enforced em UI até evoluir auth real).
+- Storage: bucket público `calendario-assets`, política RLS para insert/update apenas via signed upload do admin.
+- Domínio: novos tipos `TemplateFluxo`, `AcaoTemplate`, `RegraData`, `RegraNotificacao`, `DependenciaAcao`. Campo `templateOrigemId?: string` em `Obrigacao` e `Evento`.
