@@ -281,15 +281,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (s.kind === "admin") return true;
       return s.area === area;
     },
-    logout() {
-      setState((s) => ({ ...s, session: null }));
-    },
-    canEditArea(area) {
-      const s = state.session;
-      if (!s) return false;
-      if (s.kind === "admin") return true;
-      return s.area === area;
-    },
+
+
 
     addObrigacao(data) {
       const id = `ob-${Date.now()}`;
