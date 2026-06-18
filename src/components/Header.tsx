@@ -62,9 +62,6 @@ export function Header({
               title="Notificações"
               aria-label="Notificações"
             >
-              title="Notificações"
-              aria-label="Notificações"
-            >
               <Bell className="h-4 w-4" />
               {notificacoesCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-semibold text-accent-foreground">
