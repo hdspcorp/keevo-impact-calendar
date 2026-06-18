@@ -249,19 +249,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     hydrated,
 
     login(userOrEmail, pass) {
-      const q = userOrEmail.toLowerCase().trim();
-      const found = MOCK_USERS.find(
-        (u) =>
-          (u.email.toLowerCase() === q || u.email.split("@")[0].toLowerCase() === q) &&
-          u.pass === pass
+      const q = userOrEmail.trim();
+      const qLower = q.toLowerCase();
+      // 1) Usuários gerenciados (case-sensitive em email/senha — permite ADMIN/ADMIN)
+      const managed = state.usuarios.find(
+        (u) => u.ativo && (u.email === q || u.email.toLowerCase() === qLower) && u.pass === pass
       );
-      if (!found) return null;
+      const baseUser =
+        managed ??
+        MOCK_USERS.find(
+          (u) =>
+            (u.email === q ||
+              u.email.toLowerCase() === qLower ||
+              u.email.split("@")[0].toLowerCase() === qLower) &&
+            u.pass === pass
+        );
+      if (!baseUser) return null;
       const session: Session =
-        found.kind === "admin"
-          ? { kind: "admin", nome: found.nome, email: found.email }
-          : { kind: "area", nome: found.nome, email: found.email, area: found.area! };
+        baseUser.kind === "admin"
+          ? { kind: "admin", nome: baseUser.nome, email: baseUser.email }
+          : { kind: "area", nome: baseUser.nome, email: baseUser.email, area: baseUser.area! };
       setState((s) => ({ ...s, session }));
       return session;
+    },
+    logout() {
+      setState((s) => ({ ...s, session: null }));
+    },
+    canEditArea(area) {
+      const s = state.session;
+      if (!s) return false;
+      if (s.kind === "admin") return true;
+      return s.area === area;
     },
     logout() {
       setState((s) => ({ ...s, session: null }));
