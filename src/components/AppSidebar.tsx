@@ -35,6 +35,7 @@ export type SidebarSection =
   | "relatorios"
   | "configuracoes"
   | "usuarios"
+  | "templates"
   | "ajuda";
 
 type Item = {
