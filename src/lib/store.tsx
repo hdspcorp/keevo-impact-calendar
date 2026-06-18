@@ -212,6 +212,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         obrigacoes: state.obrigacoes,
         templates: state.templates,
         eventos: state.eventos,
+        usuarios: state.usuarios,
+        settings: state.settings,
       };
       const { error } = await supabase
         .from("app_state")
@@ -222,7 +224,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         );
       if (error) console.warn("[store] save failed", error);
     }, 400);
-  }, [state.obrigacoes, state.templates, state.eventos, hydrated]);
+  }, [state.obrigacoes, state.templates, state.eventos, state.usuarios, state.settings, hydrated]);
 
   // -- persist session locally --
   React.useEffect(() => {
