@@ -75,6 +75,7 @@ export function AppSidebar({
 
   const adminItems: Item[] = [
     { key: "usuarios", label: "Usuários", icon: Users },
+    { key: "templates", label: "Templates", icon: ListChecks },
     { key: "configuracoes", label: "Configurações", icon: Settings },
   ];
 
