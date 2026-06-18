@@ -185,6 +185,11 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
       setSection("usuarios");
       return;
     }
+    if (s === "templates") {
+      if (!isAdmin) return;
+      setTplOpen(true);
+      return;
+    }
     if (s === "relatorios") {
       toast.info("Relatórios em breve.");
       return;

@@ -8,6 +8,7 @@ import {
   Settings,
   HelpCircle,
   Users,
+  ListChecks,
 } from "lucide-react";
 import {
   Sidebar,
@@ -34,6 +35,7 @@ export type SidebarSection =
   | "relatorios"
   | "configuracoes"
   | "usuarios"
+  | "templates"
   | "ajuda";
 
 type Item = {
@@ -73,6 +75,7 @@ export function AppSidebar({
 
   const adminItems: Item[] = [
     { key: "usuarios", label: "Usuários", icon: Users },
+    { key: "templates", label: "Templates", icon: ListChecks },
     { key: "configuracoes", label: "Configurações", icon: Settings },
   ];
 
