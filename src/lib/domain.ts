@@ -507,5 +507,6 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   nomeCalendario: "Calendário de Gestão de Impactos 2026",
   subtitulo: "Planeje, acompanhe e execute os principais temas do ano.",
   logoDataUrl: null,
-  corPrimaria: "262 83% 58%",
+  // oklch L C H — roxo Keevo padrão
+  corPrimaria: "0.46 0.22 295",
 };
