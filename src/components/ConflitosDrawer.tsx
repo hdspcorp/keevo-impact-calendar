@@ -95,9 +95,7 @@ export function ConflitosDrawer({
                         kind="Impacto"
                         title={ob.nome}
                         date={fmt(ob.dataVencimento)}
-                        area={areaNome(
-                          (Object.keys(ob.areas) as Array<keyof typeof ob.areas>)[0] as never
-                        )}
+                        area={c.area ? areaNome(c.area) : ob.linhaModulo}
                         meta={`${ob.tipo} · ${ob.linhaModulo}`}
                         onEdit={() => {
                           onOpenObrigacao(ob);
