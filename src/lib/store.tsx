@@ -233,6 +233,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         eventos: state.eventos,
         usuarios: state.usuarios,
         settings: state.settings,
+        atalhos: state.atalhos,
       };
       const { error } = await supabase
         .from("app_state")
@@ -243,7 +244,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         );
       if (error) console.warn("[store] save failed", error);
     }, 400);
-  }, [state.obrigacoes, state.templates, state.eventos, state.usuarios, state.settings, hydrated]);
+  }, [state.obrigacoes, state.templates, state.eventos, state.usuarios, state.settings, state.atalhos, hydrated]);
 
   // -- persist session locally --
   React.useEffect(() => {
@@ -699,6 +700,42 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // ---- Settings ----
     updateSettings(patch) {
       setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
+    },
+
+    // ---- Atalhos inteligentes ----
+    addAtalho(a) {
+      const novo: AtalhoEvento = {
+        ...a,
+        id: `atl-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        ordem: state.atalhos.length,
+        ativo: true,
+      };
+      setState((s) => ({ ...s, atalhos: [...s.atalhos, novo] }));
+      return novo;
+    },
+    updateAtalho(id, patch) {
+      setState((s) => ({
+        ...s,
+        atalhos: s.atalhos.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      }));
+    },
+    removeAtalho(id) {
+      setState((s) => ({ ...s, atalhos: s.atalhos.filter((a) => a.id !== id) }));
+    },
+    reorderAtalho(id, dir) {
+      setState((s) => {
+        const sorted = [...s.atalhos].sort((a, b) => a.ordem - b.ordem);
+        const idx = sorted.findIndex((x) => x.id === id);
+        const swap = sorted[idx + dir];
+        if (!swap) return s;
+        const map = new Map(s.atalhos.map((x) => [x.id, { ...x }]));
+        const a = map.get(id)!;
+        const b = map.get(swap.id)!;
+        const tmp = a.ordem;
+        a.ordem = b.ordem;
+        b.ordem = tmp;
+        return { ...s, atalhos: Array.from(map.values()) };
+      });
     },
   };
 
