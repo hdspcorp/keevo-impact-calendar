@@ -510,3 +510,61 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   // oklch L C H — roxo Keevo padrão
   corPrimaria: "0.46 0.22 295",
 };
+
+// ---------- ATALHOS INTELIGENTES (eventos pré-definidos) ----------
+export type AtalhoEvento = {
+  id: string;
+  nome: string;
+  descricao?: string;
+  icone?: string; // emoji ou caractere para exibição
+  area: AreaSlug;
+  tipo: TipoEvento;
+  relevancia: RelevanciaEvento;
+  geraConflito: boolean;
+  /** Duração padrão em dias (1 = evento de um dia). */
+  duracaoDias: number;
+  ordem: number;
+  ativo: boolean;
+};
+
+export const DEFAULT_ATALHOS: AtalhoEvento[] = [
+  {
+    id: "atl-keevo-live",
+    nome: "Keevo Live",
+    descricao: "Live recorrente da Keevo com participação de várias áreas.",
+    icone: "🎥",
+    area: "marketing",
+    tipo: "Live",
+    relevancia: "Alta",
+    geraConflito: true,
+    duracaoDias: 1,
+    ordem: 0,
+    ativo: true,
+  },
+  {
+    id: "atl-treinamento-interno",
+    nome: "Treinamento Interno",
+    descricao: "Capacitação interna do time de Operações / Suporte.",
+    icone: "🎓",
+    area: "operacoes",
+    tipo: "Treinamento",
+    relevancia: "Média",
+    geraConflito: false,
+    duracaoDias: 1,
+    ordem: 1,
+    ativo: true,
+  },
+  {
+    id: "atl-comunicado",
+    nome: "Comunicado",
+    descricao: "Disparo de comunicado oficial para clientes.",
+    icone: "📣",
+    area: "marketing",
+    tipo: "Disparo",
+    relevancia: "Média",
+    geraConflito: true,
+    duracaoDias: 1,
+    ordem: 2,
+    ativo: true,
+  },
+];
