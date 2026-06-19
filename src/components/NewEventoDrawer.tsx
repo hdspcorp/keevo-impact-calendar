@@ -10,12 +10,27 @@ import { useStore } from "@/lib/store";
 import { AREAS, AreaSlug, RelevanciaEvento, TipoEvento, TIPOS_EVENTO } from "@/lib/domain";
 import { toast } from "sonner";
 
+export type EventoInicial = Partial<{
+  titulo: string;
+  area: AreaSlug;
+  tipo: TipoEvento;
+  dataInicio: string;
+  dataFim: string;
+  descricao: string;
+  responsavel: string;
+  relevancia: RelevanciaEvento;
+  geraConflito: boolean;
+  observacoes: string;
+}>;
+
 export function NewEventoDrawer({
   open,
   onOpenChange,
+  initial,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  initial?: EventoInicial;
 }) {
   const { addEvento, session } = useStore();
   const [f, setF] = React.useState({
@@ -32,14 +47,22 @@ export function NewEventoDrawer({
   });
 
   React.useEffect(() => {
-    if (open && session) {
+    if (open) {
       setF((s) => ({
         ...s,
-        area: session.kind === "area" ? session.area : s.area,
-        responsavel: s.responsavel || session.nome,
+        area: initial?.area ?? (session?.kind === "area" ? session.area : s.area),
+        responsavel: initial?.responsavel ?? s.responsavel ?? session?.nome ?? "",
+        titulo: initial?.titulo ?? s.titulo,
+        tipo: initial?.tipo ?? s.tipo,
+        dataInicio: initial?.dataInicio ?? s.dataInicio,
+        dataFim: initial?.dataFim ?? s.dataFim,
+        descricao: initial?.descricao ?? s.descricao,
+        relevancia: initial?.relevancia ?? s.relevancia,
+        geraConflito: initial?.geraConflito ?? s.geraConflito,
+        observacoes: initial?.observacoes ?? s.observacoes,
       }));
     }
-  }, [open, session]);
+  }, [open, session, initial]);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();

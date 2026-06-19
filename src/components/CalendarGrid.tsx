@@ -9,10 +9,12 @@ export function CalendarGrid({
   obrigacoes,
   eventos,
   onSelect,
+  onSelectEvento,
 }: {
   obrigacoes: Obrigacao[];
   eventos: Evento[];
   onSelect: (o: Obrigacao) => void;
+  onSelectEvento?: (e: Evento) => void;
 }) {
   const { removeEvento, session } = useStore();
 
@@ -85,6 +87,7 @@ export function CalendarGrid({
                     key={e.id}
                     e={e}
                     canRemove={canRemove}
+                    onClick={onSelectEvento ? () => onSelectEvento(e) : undefined}
                     onRemove={() => removeEvento(e.id)}
                   />
                 );

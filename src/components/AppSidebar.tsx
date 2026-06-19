@@ -3,12 +3,12 @@ import {
   Calendar as CalendarIcon,
   User,
   AlertTriangle,
-  Layers,
   BarChart3,
   Settings,
   HelpCircle,
   Users,
   ListChecks,
+  Zap,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,11 +31,11 @@ export type SidebarSection =
   | "calendario"
   | "minha-area"
   | "conflitos"
-  | "impactos"
   | "relatorios"
   | "configuracoes"
   | "usuarios"
   | "templates"
+  | "atalhos"
   | "ajuda";
 
 type Item = {
@@ -69,13 +69,13 @@ export function AppSidebar({
       ? [{ key: "minha-area" as const, label: "Minha área", icon: User }]
       : []),
     { key: "conflitos", label: "Conflitos", icon: AlertTriangle, badge: conflitosCount },
-    { key: "impactos", label: "Impactos", icon: Layers },
     { key: "relatorios", label: "Relatórios", icon: BarChart3, disabled: true },
   ];
 
   const adminItems: Item[] = [
     { key: "usuarios", label: "Usuários", icon: Users },
-    { key: "templates", label: "Templates", icon: ListChecks },
+    { key: "templates", label: "Checklists", icon: ListChecks },
+    { key: "atalhos", label: "Atalhos inteligentes", icon: Zap },
     { key: "configuracoes", label: "Configurações", icon: Settings },
   ];
 

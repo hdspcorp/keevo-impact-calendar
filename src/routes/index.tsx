@@ -2,6 +2,7 @@ import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Plus, Settings2, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { StoreProvider, useStore } from "@/lib/store";
 import { Header } from "@/components/Header";
@@ -11,13 +12,17 @@ import { CalendarGrid } from "@/components/CalendarGrid";
 import { MyAreaCards, AreaDrillKind } from "@/components/MyAreaCards";
 import { AreaItemsDrawer } from "@/components/AreaItemsDrawer";
 import { ImpactDetailDrawer } from "@/components/ImpactDetailDrawer";
+import { EventoDetailDrawer } from "@/components/EventoDetailDrawer";
 import { NewObrigacaoDrawer } from "@/components/NewObrigacaoDrawer";
-import { NewEventoDrawer } from "@/components/NewEventoDrawer";
+import { NewEventoDrawer, EventoInicial } from "@/components/NewEventoDrawer";
 import { ManageTemplatesDrawer } from "@/components/ManageTemplatesDrawer";
 import { AdminUsersPage } from "@/components/admin/AdminUsersPage";
 import { AdminSettingsPage } from "@/components/admin/AdminSettingsPage";
+import { AdminAtalhosPage } from "@/components/admin/AdminAtalhosPage";
 import { ConflitosDrawer } from "@/components/ConflitosDrawer";
-import { AreaSlug, Obrigacao } from "@/lib/domain";
+import { AtalhosBar } from "@/components/AtalhosBar";
+import { MetricsBar } from "@/components/MetricsBar";
+import { AreaSlug, AtalhoEvento, Evento, Obrigacao } from "@/lib/domain";
 import { isAreaAvaliada, proximaPendente } from "@/lib/store";
 import { detectarConflitos } from "@/lib/conflitos";
 import { Toaster } from "@/components/ui/sonner";
@@ -36,12 +41,10 @@ export const Route = createFileRoute("/")({
 
 function Shell() {
   const { session, settings } = useStore();
-  // Sidebar só existe para usuário logado; começa recolhida e persiste preferência.
   const [open, setOpen] = React.useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
-      const raw = localStorage.getItem(SIDEBAR_OPEN_KEY);
-      return raw === "1";
+      return localStorage.getItem(SIDEBAR_OPEN_KEY) === "1";
     } catch {
       return false;
     }
@@ -52,7 +55,6 @@ function Shell() {
     } catch {}
   }, [open]);
 
-  // Aplica cor primária configurada no :root.
   React.useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.style.setProperty(
@@ -72,12 +74,14 @@ function Shell() {
 }
 
 function Page({ hideSidebar }: { hideSidebar: boolean }) {
-  const { obrigacoes, eventos, session } = useStore();
+  const { obrigacoes, eventos, atalhos, session } = useStore();
   const [filters, setFilters] = React.useState<FilterValues>(DEFAULT_FILTERS);
   const [section, setSection] = React.useState<SidebarSection>("calendario");
   const [selected, setSelected] = React.useState<Obrigacao | null>(null);
+  const [selectedEvento, setSelectedEvento] = React.useState<Evento | null>(null);
   const [newOpen, setNewOpen] = React.useState(false);
   const [evtOpen, setEvtOpen] = React.useState(false);
+  const [evtInitial, setEvtInitial] = React.useState<EventoInicial | undefined>(undefined);
   const [tplOpen, setTplOpen] = React.useState(false);
   const [drill, setDrill] = React.useState<AreaDrillKind | null>(null);
 
@@ -85,12 +89,10 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
   const isAdmin = session?.kind === "admin";
   const userArea: AreaSlug | null = session?.kind === "area" ? session.area : null;
 
-  // Reset para "Calendário" quando logar/deslogar
   React.useEffect(() => {
     setSection("calendario");
   }, [session?.email]);
 
-  // Conflitos para badge da sidebar + central de notificações
   const conflitos = React.useMemo(
     () => detectarConflitos(obrigacoes, eventos),
     [obrigacoes, eventos]
@@ -127,7 +129,6 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
 
   const isMinhaArea = section === "minha-area" && !!userArea;
 
-  // Em "Minha área" prioriza itens da área logada
   const calendarItems = React.useMemo(() => {
     if (isMinhaArea && userArea) {
       return filtered.filter(
@@ -144,7 +145,6 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
     return base;
   }, [eventos, filters.area, isMinhaArea, userArea]);
 
-  // Abre impacto via ?impacto=ID
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const p = new URLSearchParams(window.location.search).get("impacto");
@@ -154,7 +154,6 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
     }
   }, [obrigacoes]);
 
-  // Drill "proxima-acao" abre direto o impacto
   React.useEffect(() => {
     if (drill?.kind === "proxima-acao") {
       const o = obrigacoes.find((x) => x.id === drill.obrigacaoId);
@@ -166,7 +165,9 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
   }, [drill, obrigacoes]);
 
   const [conflitosOpen, setConflitosOpen] = React.useState(false);
-  const [adminPage, setAdminPage] = React.useState<"usuarios" | "configuracoes" | null>(null);
+  const [adminPage, setAdminPage] = React.useState<
+    "usuarios" | "configuracoes" | "atalhos" | null
+  >(null);
 
   const handleNavigate = (s: SidebarSection) => {
     if (s === "minha-area" && !userArea) {
@@ -183,6 +184,12 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
       if (!isAdmin) return;
       setAdminPage("usuarios");
       setSection("usuarios");
+      return;
+    }
+    if (s === "atalhos") {
+      if (!isAdmin) return;
+      setAdminPage("atalhos");
+      setSection("atalhos");
       return;
     }
     if (s === "templates") {
@@ -206,7 +213,6 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
     setSection(s);
   };
 
-  // Admin não tem visão "minha área" — força "calendario"
   const effectiveSection: SidebarSection =
     isPublic || isAdmin || !userArea
       ? section === "minha-area"
@@ -216,36 +222,84 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
 
   const showCalendario = adminPage === null;
 
+  const openAtalho = (a: AtalhoEvento) => {
+    const hoje = new Date();
+    const inicio = hoje.toISOString().slice(0, 10);
+    const fim = new Date(hoje.getTime() + Math.max(0, a.duracaoDias - 1) * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    setEvtInitial({
+      titulo: a.nome,
+      area: a.area,
+      tipo: a.tipo,
+      relevancia: a.relevancia,
+      geraConflito: a.geraConflito,
+      descricao: a.descricao,
+      dataInicio: inicio,
+      dataFim: a.duracaoDias > 1 ? fim : "",
+    });
+    setEvtOpen(true);
+  };
+
+  const openNovoEvento = () => {
+    setEvtInitial(undefined);
+    setEvtOpen(true);
+  };
+
   const content = (
     <SidebarInset className="min-w-0">
-      <Header notificacoesCount={conflitos.length} onOpenNotificacoes={() => setConflitosOpen(true)} />
+      <Header
+        notificacoesCount={conflitos.length}
+        onOpenNotificacoes={() => setConflitosOpen(true)}
+      />
 
-      {/* Barra sticky de ações — apenas admin pode criar */}
-      {isAdmin && showCalendario && (
+      {/* Atalhos visíveis para TODOS os usuários (incluindo público) quando estiver no calendário */}
+      {showCalendario && (
         <div className="sticky top-14 z-20 border-b border-border/60 bg-background/85 backdrop-blur-md">
-          <div className="flex flex-wrap items-center justify-end gap-2 px-4 py-2.5 sm:px-6">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setTplOpen(true)}
-            >
-              <Settings2 className="h-4 w-4" />
-              Gerenciar obrigações
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2"
-              onClick={() => setEvtOpen(true)}
-            >
-              <CalendarPlus className="h-4 w-4" />
-              Novo evento
-            </Button>
-            <Button size="sm" className="gap-2" onClick={() => setNewOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Nova obrigação
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 sm:px-6">
+            {!!userArea && !isAdmin && (
+              <Tabs
+                value={section === "minha-area" ? "minha-area" : "todos"}
+                onValueChange={(v) =>
+                  setSection(v === "minha-area" ? "minha-area" : "calendario")
+                }
+              >
+                <TabsList>
+                  <TabsTrigger value="todos">Todos</TabsTrigger>
+                  <TabsTrigger value="minha-area">Minha área</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => setTplOpen(true)}
+                >
+                  <Settings2 className="h-4 w-4" />
+                  Gerenciar obrigações
+                </Button>
+              )}
+              {session && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={openNovoEvento}
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  Novo evento
+                </Button>
+              )}
+              {isAdmin && (
+                <Button size="sm" className="gap-2" onClick={() => setNewOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  Nova obrigação
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -253,9 +307,19 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
       <main className="mx-auto w-full max-w-[1500px] space-y-5 px-4 py-5 sm:px-6">
         {adminPage === "usuarios" && <AdminUsersPage />}
         {adminPage === "configuracoes" && <AdminSettingsPage />}
+        {adminPage === "atalhos" && <AdminAtalhosPage />}
 
         {showCalendario && (
           <>
+            <MetricsBar
+              obrigacoes={obrigacoes}
+              eventos={eventos}
+              conflitos={conflitos}
+              onOpenConflitos={() => setConflitosOpen(true)}
+            />
+
+            <AtalhosBar atalhos={atalhos} onUse={openAtalho} />
+
             {isMinhaArea && userArea && (
               <MyAreaCards
                 area={userArea}
@@ -271,6 +335,7 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
               obrigacoes={calendarItems}
               eventos={eventosVisiveis}
               onSelect={(o) => setSelected(o)}
+              onSelectEvento={(e) => setSelectedEvento(e)}
             />
           </>
         )}
@@ -281,15 +346,22 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
         open={!!selected}
         onOpenChange={(v) => !v && setSelected(null)}
       />
+      <EventoDetailDrawer
+        evento={selectedEvento}
+        open={!!selectedEvento}
+        onOpenChange={(v) => !v && setSelectedEvento(null)}
+      />
       <NewObrigacaoDrawer open={newOpen} onOpenChange={setNewOpen} />
-      <NewEventoDrawer open={evtOpen} onOpenChange={setEvtOpen} />
+      <NewEventoDrawer open={evtOpen} onOpenChange={setEvtOpen} initial={evtInitial} />
       <ManageTemplatesDrawer open={tplOpen} onOpenChange={setTplOpen} />
       <ConflitosDrawer
         open={conflitosOpen}
         onOpenChange={setConflitosOpen}
         conflitos={conflitos}
         obrigacoes={obrigacoes}
+        eventos={eventos}
         onOpenObrigacao={(o) => setSelected(o)}
+        onOpenEvento={(e) => setSelectedEvento(e)}
       />
 
       {userArea && (
@@ -304,7 +376,6 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
       )}
     </SidebarInset>
   );
-
 
   if (hideSidebar) {
     return <div className="flex min-h-screen w-full">{content}</div>;
@@ -322,4 +393,3 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
     </div>
   );
 }
-
