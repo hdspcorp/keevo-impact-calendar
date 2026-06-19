@@ -37,6 +37,7 @@ type Persisted = {
   eventos: Evento[];
   usuarios: UsuarioGerenciado[];
   settings: AppSettings;
+  atalhos: AtalhoEvento[];
 };
 
 type State = Persisted & { session: Session };
@@ -79,6 +80,12 @@ type Ctx = State & {
 
   // ---- Settings ----
   updateSettings: (patch: Partial<AppSettings>) => void;
+
+  // ---- Atalhos inteligentes ----
+  addAtalho: (a: Omit<AtalhoEvento, "id" | "ordem" | "ativo">) => AtalhoEvento;
+  updateAtalho: (id: string, patch: Partial<AtalhoEvento>) => void;
+  removeAtalho: (id: string) => void;
+  reorderAtalho: (id: string, dir: -1 | 1) => void;
 
   hydrated: boolean;
 };
@@ -143,6 +150,7 @@ function migrate(p: Partial<Persisted> | null | undefined): Persisted {
     eventos: p?.eventos ?? SEED_EVENTOS,
     usuarios: p?.usuarios ?? [],
     settings: { ...DEFAULT_APP_SETTINGS, ...(p?.settings ?? {}) },
+    atalhos: p?.atalhos ?? DEFAULT_ATALHOS,
   };
 }
 
