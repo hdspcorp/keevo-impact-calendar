@@ -29,20 +29,14 @@ export function AreaLoginDialog({
   const [user, setUser] = React.useState("");
   const [pass, setPass] = React.useState("");
   const [err, setErr] = React.useState<string | null>(null);
-  React.useEffect(() => {
-    void presetEmail;
-  }, []);
-  const presetEmail = "";
-  const [pass, setPass] = React.useState("");
-  const [err, setErr] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (open) {
-      setUser(presetEmail);
+      setUser("");
       setPass("");
       setErr(null);
     }
-  }, [open, presetEmail]);
+  }, [open]);
 
   const handle = (e: React.FormEvent) => {
     e.preventDefault();
