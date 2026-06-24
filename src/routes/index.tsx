@@ -311,22 +311,23 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
 
         {showCalendario && (
           <>
-            <MetricsBar
-              obrigacoes={obrigacoes}
-              eventos={eventos}
-              conflitos={conflitos}
-              onOpenConflitos={() => setConflitosOpen(true)}
-            />
-
-            <AtalhosBar atalhos={atalhos} onUse={openAtalho} />
+            {session && <AtalhosBar atalhos={atalhos} onUse={openAtalho} />}
 
             {isMinhaArea && userArea && (
-              <MyAreaCards
-                area={userArea}
-                obrigacoes={obrigacoes}
-                eventos={eventos}
-                onDrill={setDrill}
-              />
+              <>
+                <MetricsBar
+                  obrigacoes={obrigacoes}
+                  eventos={eventos}
+                  conflitos={conflitos}
+                  onOpenConflitos={() => setConflitosOpen(true)}
+                />
+                <MyAreaCards
+                  area={userArea}
+                  obrigacoes={obrigacoes}
+                  eventos={eventos}
+                  onDrill={setDrill}
+                />
+              </>
             )}
 
             <Filters value={filters} onChange={setFilters} />
