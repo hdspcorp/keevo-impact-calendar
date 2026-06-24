@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useStore } from "@/lib/store";
-import { AreaSlug, MOCK_USERS } from "@/lib/domain";
-void MOCK_USERS;
+import { AreaSlug } from "@/lib/domain";
 import { toast } from "sonner";
 
 export function AreaLoginDialog({
