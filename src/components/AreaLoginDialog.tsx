@@ -25,10 +25,14 @@ export function AreaLoginDialog({
   onAuthenticated?: () => void;
 }) {
   const { login } = useStore();
-  const presetEmail = forceArea
-    ? MOCK_USERS.find((u) => u.area === forceArea)?.email ?? ""
-    : "";
-  const [user, setUser] = React.useState(presetEmail);
+  void forceArea;
+  const [user, setUser] = React.useState("");
+  const [pass, setPass] = React.useState("");
+  const [err, setErr] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    void presetEmail;
+  }, []);
+  const presetEmail = "";
   const [pass, setPass] = React.useState("");
   const [err, setErr] = React.useState<string | null>(null);
 
