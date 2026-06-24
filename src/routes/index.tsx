@@ -253,7 +253,7 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
         onOpenNotificacoes={() => setConflitosOpen(true)}
       />
 
-      {/* Atalhos visíveis para TODOS os usuários (incluindo público) quando estiver no calendário */}
+      {/* Barra superior: tabs (Todos/Minha área) e ações de criação para usuários logados */}
       {showCalendario && (
         <div className="sticky top-14 z-20 border-b border-border/60 bg-background/85 backdrop-blur-md">
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 sm:px-6">
@@ -311,22 +311,23 @@ function Page({ hideSidebar }: { hideSidebar: boolean }) {
 
         {showCalendario && (
           <>
-            <MetricsBar
-              obrigacoes={obrigacoes}
-              eventos={eventos}
-              conflitos={conflitos}
-              onOpenConflitos={() => setConflitosOpen(true)}
-            />
-
-            <AtalhosBar atalhos={atalhos} onUse={openAtalho} />
+            {session && <AtalhosBar atalhos={atalhos} onUse={openAtalho} />}
 
             {isMinhaArea && userArea && (
-              <MyAreaCards
-                area={userArea}
-                obrigacoes={obrigacoes}
-                eventos={eventos}
-                onDrill={setDrill}
-              />
+              <>
+                <MetricsBar
+                  obrigacoes={obrigacoes}
+                  eventos={eventos}
+                  conflitos={conflitos}
+                  onOpenConflitos={() => setConflitosOpen(true)}
+                />
+                <MyAreaCards
+                  area={userArea}
+                  obrigacoes={obrigacoes}
+                  eventos={eventos}
+                  onDrill={setDrill}
+                />
+              </>
             )}
 
             <Filters value={filters} onChange={setFilters} />
