@@ -72,12 +72,22 @@ export type ChecklistTemplate = {
   somenteAcaoNecessaria: boolean;
 };
 
+export type AcaoStatus = "A fazer" | "Em execução" | "Concluída" | "Bloqueada";
+
 export type Acao = {
   id: string;
   area: AreaSlug;
   nome: string;
   origem: "template" | "custom";
   selecionada: boolean;
+  // Detalhamento operacional (opcional)
+  responsavel?: string;
+  observacao?: string;
+  dataInicio?: string; // YYYY-MM-DD
+  dataFim?: string; // YYYY-MM-DD
+  status?: AcaoStatus;
+  /** Quando false, a ação não aparece como chip no card do calendário. Default: true. */
+  exibirNoCard?: boolean;
 };
 
 export type AreaStatus = {
