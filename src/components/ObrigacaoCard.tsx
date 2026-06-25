@@ -40,11 +40,13 @@ export function ObrigacaoCard({
   onClick,
   hasConflict,
   fromTemplate,
+  showNextArea = true,
 }: {
   o: Obrigacao;
   onClick: () => void;
   hasConflict?: boolean;
   fromTemplate?: string;
+  showNextArea?: boolean;
 }) {
   const venc = new Date(o.dataVencimento + "T00:00:00");
   const daysLeft = Math.ceil((venc.getTime() - Date.now()) / 86400000);
@@ -59,9 +61,9 @@ export function ObrigacaoCard({
     (a) => a.status === "Concluída" || a.semAcaoNecessaria
   ).length;
 
- // Ações marcadas como visíveis no card (selecionadas) — até 3 chips + contagem.
- // Respeita o flag exibirNoCard (default true) para evitar poluir o card.
- const acoesSel = o.acoes.filter((a) => a.selecionada && a.exibirNoCard !== false);
+  // Ações marcadas como visíveis no card (selecionadas) — até 3 chips + contagem.
+  // Respeita o flag exibirNoCard (default true) para evitar poluir o card.
+  const acoesSel = o.acoes.filter((a) => a.selecionada && a.exibirNoCard !== false);
   const acoesVisiveis = acoesSel.slice(0, 3);
   const extras = acoesSel.length - acoesVisiveis.length;
 
@@ -118,8 +120,8 @@ export function ObrigacaoCard({
         </span>
       </div>
 
-      {/* Próxima área */}
-      {prox && (
+      {/* Próxima área: somente para usuários autenticados */}
+      {showNextArea && prox && (
         <div className="mt-2 flex items-center gap-1 text-[10.5px]">
           <span className="text-muted-foreground">Próx. área:</span>
           <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">
