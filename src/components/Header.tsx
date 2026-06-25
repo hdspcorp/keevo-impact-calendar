@@ -1,5 +1,5 @@
 import * as React from "react";
-import { LogOut, ShieldCheck, User, Bell } from "lucide-react";
+import { LogOut, ShieldCheck, User, Bell, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -8,6 +8,7 @@ import { useStore } from "@/lib/store";
 import { areaNome } from "@/lib/domain";
 import { AreaLoginDialog } from "./AreaLoginDialog";
 import { KeevoLogo } from "./KeevoLogo";
+import { AdminChangePasswordDialog } from "./AdminChangePasswordDialog";
 
 export function Header({
   notificacoesCount = 0,
