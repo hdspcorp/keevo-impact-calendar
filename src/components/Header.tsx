@@ -92,6 +92,17 @@ export function Header({
                   {initials}
                 </AvatarFallback>
               </Avatar>
+              {session.kind === "admin" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setPwdOpen(true)}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Alterar minha senha"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
