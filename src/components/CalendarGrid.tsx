@@ -5,6 +5,27 @@ import { EventoCard } from "./EventoCard";
 import { eventosNoConflitoComObrigacao } from "@/lib/conflitos";
 import { useStore } from "@/lib/store";
 
+const AUDIT_KEY = "keevo-impactos-exclusoes-v1";
+
+function registrarExclusao(item: {
+  tipo: "evento" | "impacto";
+  id: string;
+  titulo: string;
+  usuario: string;
+  email?: string;
+}) {
+  if (typeof window === "undefined") return;
+  try {
+    const limite = Date.now() - 1000 * 60 * 60 * 24 * 92;
+    const atuais = JSON.parse(localStorage.getItem(AUDIT_KEY) ?? "[]") as Array<{ excluidoEm: string }>;
+    const filtrados = atuais.filter((x) => new Date(x.excluidoEm).getTime() >= limite);
+    filtrados.unshift({ ...item, excluidoEm: new Date().toISOString() });
+    localStorage.setItem(AUDIT_KEY, JSON.stringify(filtrados));
+  } catch {
+    // auditoria local não pode impedir a exclusão
+  }
+}
+
 export function CalendarGrid({
   obrigacoes,
   eventos,
@@ -75,6 +96,7 @@ export function CalendarGrid({
                     o={o}
                     onClick={() => onSelect(o)}
                     hasConflict={!!session && conflitos.length > 0}
+                    showNextArea={!!session}
                   />
                 );
               })}
@@ -88,7 +110,17 @@ export function CalendarGrid({
                     e={e}
                     canRemove={canRemove}
                     onClick={onSelectEvento ? () => onSelectEvento(e) : undefined}
-                    onRemove={() => removeEvento(e.id)}
+                    onRemove={() => {
+                      if (!window.confirm(`Deseja realmente excluir o evento "${e.titulo}"?`)) return;
+                      registrarExclusao({
+                        tipo: "evento",
+                        id: e.id,
+                        titulo: e.titulo,
+                        usuario: session?.nome ?? "Sistema",
+                        email: session?.email,
+                      });
+                      removeEvento(e.id);
+                    }}
                   />
                 );
               })}
