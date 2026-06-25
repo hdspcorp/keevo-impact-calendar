@@ -279,6 +279,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     login(userOrEmail, pass) {
       const q = userOrEmail.trim();
       const qLower = q.toLowerCase();
+      // 0) Override de senha do ADMIN/ADMIN (alterada via "Alterar minha senha")
+      const adminOverride = state.settings.adminPasswordOverride;
+      if (q === "ADMIN" && adminOverride && pass === adminOverride) {
+        const session: Session = { kind: "admin", nome: "Administrador Master", email: "ADMIN" };
+        setState((s) => ({ ...s, session }));
+        return session;
+      }
       // 1) Usuários gerenciados (case-sensitive em email/senha — permite ADMIN/ADMIN)
       const managed = state.usuarios.find(
         (u) => u.ativo && (u.email === q || u.email.toLowerCase() === qLower) && u.pass === pass
@@ -286,11 +293,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const baseUser =
         managed ??
         MOCK_USERS.find(
-          (u) =>
-            (u.email === q ||
-              u.email.toLowerCase() === qLower ||
-              u.email.split("@")[0].toLowerCase() === qLower) &&
-            u.pass === pass
+          (u) => {
+            // Se ADMIN tem override ativo, a senha padrão ADMIN é invalidada
+            if (u.email === "ADMIN" && adminOverride) return false;
+            return (
+              (u.email === q ||
+                u.email.toLowerCase() === qLower ||
+                u.email.split("@")[0].toLowerCase() === qLower) &&
+              u.pass === pass
+            );
+          }
         );
       if (!baseUser) return null;
       const session: Session =
