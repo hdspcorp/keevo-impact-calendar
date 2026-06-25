@@ -1,19 +1,28 @@
 // Domain types & seed data for Calendário de Gestão de Impactos 2026
 
-export type AreaSlug = "nexus" | "desenvolvimento" | "conteudos" | "marketing" | "operacoes";
+export type AreaSlug =
+  | "nexus"
+  | "desenvolvimento"
+  | "conteudos"
+  | "curadoria"
+  | "marketing"
+  | "operacoes";
 
 export const AREAS: { slug: AreaSlug; nome: string; cor: string }[] = [
   { slug: "nexus", nome: "NEXUS", cor: "oklch(0.46 0.22 295)" },
   { slug: "desenvolvimento", nome: "Desenvolvimento", cor: "oklch(0.55 0.15 230)" },
   { slug: "conteudos", nome: "Conteúdos", cor: "oklch(0.6 0.16 160)" },
+  { slug: "curadoria", nome: "Curadoria", cor: "oklch(0.62 0.16 200)" },
   { slug: "marketing", nome: "Marketing", cor: "oklch(0.7 0.18 50)" },
   { slug: "operacoes", nome: "Operações / Suporte", cor: "oklch(0.55 0.14 0)" },
 ];
 
+// Curadoria entra em paralelo com Conteúdos/Marketing — não bloqueia o fluxo.
 export const AREA_ORDEM: AreaSlug[] = [
   "nexus",
   "desenvolvimento",
   "conteudos",
+  "curadoria",
   "marketing",
   "operacoes",
 ];
