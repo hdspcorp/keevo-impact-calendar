@@ -143,10 +143,9 @@ function migrate(p: Partial<Persisted> | null | undefined): Persisted {
   const obrigacoes = (p?.obrigacoes ?? SEED_OBRIGACOES).map((o) => {
     // Garante que toda área conhecida exista no objeto (inclui Curadoria
     // em itens criados antes do seu cadastro).
-    const areas = { ...o.areas } as Record<string, unknown> as typeof o.areas;
+    const areas = { ...o.areas } as Record<AreaSlug, (typeof o.areas)[AreaSlug]>;
     for (const a of AREAS) {
       if (!areas[a.slug]) {
-        // @ts-expect-error dynamic key bootstrap
         areas[a.slug] = {
           area: a.slug,
           status: "Aguardando avaliação",
