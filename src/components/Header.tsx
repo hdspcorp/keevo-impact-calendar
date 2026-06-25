@@ -127,6 +127,7 @@ export function Header({
         </div>
       </div>
       <AreaLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      <AdminChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
     </header>
   );
 }
