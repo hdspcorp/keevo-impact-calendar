@@ -505,6 +505,7 @@ export const MOCK_USERS: MockUser[] = [
   { email: "nexus@keevo.com", pass: "nexus", nome: "Ana (NEXUS)", kind: "area", area: "nexus" },
   { email: "desenvolvimento@keevo.com", pass: "desenvolvimento", nome: "Carlos (Desenvolvimento)", kind: "area", area: "desenvolvimento" },
   { email: "conteudos@keevo.com", pass: "conteudos", nome: "Bruno (Conteúdos)", kind: "area", area: "conteudos" },
+  { email: "curadoria@keevo.com", pass: "curadoria", nome: "Kiara (Curadoria)", kind: "area", area: "curadoria" },
   { email: "marketing@keevo.com", pass: "marketing", nome: "Diana (Marketing)", kind: "area", area: "marketing" },
   { email: "operacoes@keevo.com", pass: "operacoes", nome: "Eduardo (Operações)", kind: "area", area: "operacoes" },
 ];
