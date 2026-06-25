@@ -528,6 +528,8 @@ export type AppSettings = {
   subtitulo: string;
   logoDataUrl: string | null; // base64; null = usa KeevoLogo
   corPrimaria: string; // HSL string, ex.: "262 83% 58%"
+  /** Senha alterada pelo ADMIN/ADMIN. Quando definida, substitui a senha "ADMIN" padrão. */
+  adminPasswordOverride?: string;
 };
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
