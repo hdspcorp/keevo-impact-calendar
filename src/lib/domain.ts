@@ -222,6 +222,13 @@ export const DEFAULT_TEMPLATES: ChecklistTemplate[] = [
     "Publicar material",
     "Informar data de liberação do conteúdo",
   ]),
+  ...T("curadoria", [
+    "Receber previsão de QAS do Desenvolvimento",
+    "Validar implementação apresentada pelo Dev",
+    "Preparar treinamento Kiara",
+    "Aprovar liberação para clientes",
+    "Registrar conhecimento na base",
+  ]),
   ...T("marketing", [
     "Planejar divulgação",
     "Definir datas de divulgação",
