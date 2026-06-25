@@ -160,10 +160,16 @@ export function ImpactDetailDrawer({
             )}
           </Section>
 
-          {/* Trilha de status (substitui "Situação atual") */}
+          {/* Prioridade: ações planejadas para o impacto */}
+          <Section title="Ações planejadas" icon={<CheckCircle2 className="h-3.5 w-3.5 text-primary" />}>
+            <AcoesPlanejadasResumo obrigacao={o} />
+          </Section>
+
+          {/* Trilha de status (secundária) */}
           <Section title="Trilha de status">
             <StatusTrail obrigacao={o} />
           </Section>
+
 
           {/* Situação por área */}
           <Section title="Situação por área">
