@@ -1,81 +1,100 @@
-# Plano — Finalização do Calendário de Impactos 2026
+# Reconstrução do Calendário / Gestão de Impactos
 
-Vou implementar tudo o que falta em um único ciclo, dividido em 4 blocos. Antes de começar quero confirmar o escopo abaixo para evitar retrabalho — é um pacote grande (muitas telas, backend novo, permissões), então qualquer desvio agora economiza horas depois.
+Entrega única, aderente ao documento builder (mockups como referência visual, não a UI atual). Abaixo o que será feito, agrupado por bloco. Nada nasce travado: tudo que o ADMIN cria continua editável.
 
-## Bloco 0 — Ajustes da Fase 1 (sidebar e visão pública)
+## 1. Modelagem (fonte única de verdade)
+- Entidade base **Item do Calendário** com `tipo: 'evento' | 'obrigacao'` e contexto **Impacto** (áreas envolvidas, ações planejadas, checklist, status).
+- Áreas tornam-se **configuráveis** (CRUD pelo ADMIN), incluindo **Curadoria** no mesmo nível de Conteúdo/Marketing (paralelo, não bloqueia).
+- Ações por área ganham: `responsavel`, `status`, `observacao`, `dataInicio?`, `dataFim?`, `exibirNoCard: boolean`.
+- Atalhos inteligentes viram entidade real (`AtalhoInteligente`): nome, descrição, tipo, áreas, ações padrão, recorrência, notificações, visibilidade, ativo, ordem.
+- Recorrência: semanal, mensal, dias úteis, com regra "se cair em dia não útil → antecipar | postergar".
+- Configurações do módulo (`ModuleSettings`): seções do detalhe (ordem/visibilidade), labels editáveis, notificações (canal, destinatários, regras).
+- Persistência: tudo continua em `app_state` (snapshot JSON) — já é o padrão do projeto e mantém edição em runtime pelo ADMIN.
 
-- Sidebar **só aparece para usuário logado**. Visitante sem login vê apenas o calendário, header e barra sticky reduzida (sem botões de criação/gestão).
-- Quando o usuário loga, a sidebar inicia **recolhida** (modo ícone) e ele expande manualmente. A preferência fica salva no `localStorage`.
-- Visão pública mostra cards em modo "somente leitura": clique abre o painel de resumo, mas sem editar status/ações.
+## 2. Login (`AreaLoginDialog` / tela de login)
+- Remove totalmente blocos de "exemplo de acesso", credenciais demo, dicas de teste.
+- Mantém ADMIN/ADMIN funcional.
+- Adiciona fluxo "Alterar senha" (perfil/admin) para o ADMIN trocar a senha posteriormente.
+- Visual profissional, sem aparência de demo.
 
-## Bloco 1 — Configurações e identidade visual (Fase 4)
+## 3. Home pública e logada
+- Home **clean**: remove `MetricsBar` da home principal (já feito) e garante que nenhum card de métrica apareça lá.
+- Métricas (total, áreas avaliadas, ações planejadas, em risco, conflitos) ficam **apenas em "Minha Área"**.
+- **Atalhos rápidos/inteligentes**: visíveis para ADMIN **e** usuário logado; ocultos para visitante sem login.
+- Remove o item de menu lateral "Impactos" (sem função real).
+- Refino visual: tipografia, espaçamento, hierarquia, mantendo identidade Keevo.
 
-- Nova rota `/admin/configuracoes` (só admin).
-- Bucket público `calendario-assets` no backend + tabela `app_settings` (singleton) com `nome_calendario`, `subtitulo`, `logo_url`, `cor_primaria`.
-- Upload real de logo (PNG/JPG/SVG, ≤ 2 MB) com preview ao vivo.
-- Header passa a ler `app_settings` em vez de constantes; fallback para Keevo.
+## 4. Detalhe do Item (Referência Visual A)
+Redesenho de `ImpactDetailDrawer` priorizando **Ações Planejadas**:
+- Cabeçalho com título, tipo, data, recorrência, status compacto.
+- Bloco principal: **Ações planejadas por área** (lista agrupada, com badge de status, responsável, datas, ícone "exibir no card").
+- Blocos secundários (colapsáveis, reordenáveis via config do ADMIN): Áreas envolvidas, Trilha de status, Conflitos, Histórico, Anexos/observações.
+- Botão "Abrir painel da área" em cada área → abre painel de ações.
+- Garante que **qualquer clique** em evento ou obrigação no calendário abre o detalhe (corrige bug atual).
 
-## Bloco 2 — Painel Administrativo de Usuários (novo, pedido nesta mensagem)
+## 5. Painel da Área (Referência Visual B)
+Novo componente `AreaActionsPanel`:
+- Toggle: **"Temos ações"** vs **"Não há ação necessária"** (registra histórico).
+- Lista de ações com edição inline; adicionar nova ação.
+- Por ação: responsável, status, observação, data início (opcional), data fim (opcional), switch "exibir no card".
+- Botões "Salvar ação" e "Salvar e fechar".
 
-- Nova rota `/admin/usuarios` (só admin).
-- Lista de usuários com filtros por área e papel.
-- Ações por linha: **editar dados** (nome, e‑mail, área), **resetar senha** (gera nova senha temporária via Admin API), **revogar acesso** (delete user), **promover/rebaixar** entre `admin` / `area` / `viewer`.
-- Convite de novo usuário por e-mail (cria conta + papel + área inicial).
-- Backend:
-  - Tabela `user_roles` com enum `app_role` (admin, area, viewer) + função `has_role` (security definer).
-  - Tabela `profiles` (id ↔ auth.users, nome, area_slug, ativo).
-  - Server functions protegidas com `requireSupabaseAuth` + verificação `has_role(uid, 'admin')`, usando `supabaseAdmin` carregado dentro do handler para as chamadas privilegiadas (reset senha, delete user).
-  - Trigger `on_auth_user_created` cria profile vazio automaticamente.
-- Sidebar ganha seção "Administração" visível só para admin: Configurações, Usuários, Templates.
+## 6. Cadastro de Item (`NewObrigacaoDrawer` / `NewEventoDrawer`)
+- Toggle "Item padrão" → carrega checklist padrão por área.
+- Permite **remover áreas inteiras** e **desmarcar ações** caso a caso, mesmo no padrão.
+- Curadoria disponível como área padrão.
+- Recorrência com regra de dia útil (antecipar/postergar).
 
-## Bloco 3 — Templates de Fluxo + Botões personalizados (Fase 2)
+## 7. Conflitos (`ConflitosDrawer`)
+- Já side-by-side; reforça **comparação direta** dos dois itens em conflito com botão "Ajustar" que abre o item para edição imediata.
 
-- Tabelas novas:
-  - `templates_fluxo` (id, nome, descricao, icone, cor, ativo, config jsonb, created_by, created_at).
-  - `obrigacoes_template_link` (obrigacao_id, template_id, criada_em).
-- `config` jsonb guarda: áreas envolvidas, ações padrão, regras de data (6 tipos: data fixa, dia do mês, dia da semana, X dias antes/depois de outro item, recorrência mensal/semanal), dependências entre ações, permissões por área, configurações de notificação.
-- Rota `/admin/templates` (admin):
-  - Lista em cards com badge ativo/inativo, contagem de itens criados.
-  - Wizard de criação em 7 etapas: 1) Identidade, 2) Áreas, 3) Ações padrão, 4) Dependências, 5) Regras de data, 6) Notificações, 7) Permissões & botão personalizado.
-  - Editar template pergunta se aplica alterações em itens existentes (com preview do impacto).
-- Botões personalizados aparecem na **barra sticky** apenas para áreas autorizadas no template; clicar cria uma obrigação pré-preenchida.
-- Seeds embarcados via migration:
-  - "Novidades da Versão" (todas as áreas exceto Marketing, mensal).
-  - "Keevo Live" (semanal, deadline dia 20 do mês anterior).
-- Cards do calendário ganham badge "via template: X" (já preparado na Fase 1, faltava ligar ao dado real).
+## 8. Atalhos Inteligentes — Admin (`AdminAtalhosPage`)
+- CRUD completo: criar, editar, ativar/desativar, **reordenar (drag)**.
+- Editor com: nome, descrição, tipo de item, áreas, ações padrão (puxando do menu Checklist), recorrência, notificações, visibilidade, status.
+- Ao clicar no atalho na home → abre `NewObrigacaoDrawer` pré-carregado com a estrutura do atalho.
 
-## Bloco 4 — Painéis, dependências, conflito e notificações (Fase 3)
+## 9. Modo Edição do ADMIN (novo `AdminModuloPage`)
+Painel único de configuração do módulo onde o ADMIN edita:
+- **Áreas** (criar/renomear/ativar/desativar/reordenar/ocultar) — inclui Curadoria já presente.
+- **Ações padrão** por área (checklists).
+- **Tipos de item / templates**.
+- **Seções do detalhe** (ordem + visibilidade dos blocos).
+- **Labels e textos** administrativos.
+- **Notificações** (canais: e-mail funcional mínimo + Discord preparado; destinatários, regras, gatilhos).
+Tudo persistido em `app_state.config` para nada nascer travado.
 
-- **Painel "Ações da sua área"** (Sheet a partir de `MyAreaCards`): formulário inline compacto por ação, com:
-  - Status (Pendente, Em andamento, Concluída, Bloqueada).
-  - Campo de observação + anexos (Storage `acoes-anexos`).
-  - Botão concluir desabilitado se houver `dependeDe` ainda não concluída, com tooltip explicando.
-- **Painel de conflito** redesenhado (Sheet comparativo): mostra os dois itens lado a lado, datas em conflito destacadas, próximas áreas pendentes, sugestão de ação (adiar/encaixar/manter) e botão "marcar como resolvido" que escreve em `conflitos_resolvidos`.
-- **Central de notificações** (popover no sino do header):
-  - Tabela `notificacoes` (id, area_destino, tipo, titulo, descricao, obrigacao_id, lida, created_at).
-  - Eventos que geram notificação: nova obrigação atribuída, próxima etapa minha, dependência liberada, conflito novo, prazo em < 7 dias, comentário do admin.
-  - Marca como lida ao clicar; "marcar todas" no rodapé.
-- Server route `/api/public/notify.stage-completed` continua, mas passa também a gravar em `notificacoes`.
+## 10. Notificações
+- Estrutura configurável (`NotificacaoConfig`): canal, evento (ex: nova ação, conflito, prazo), destinatários por área, template.
+- E-mail como canal funcional mínimo (server route `/api/public/notify.email` — preparado, sem provider hardcoded; envia via webhook configurável).
+- Discord mantido via webhook já existente.
 
-## Permissões resumidas
+## 11. Curadoria no Fluxo
+- Área "Curadoria" adicionada às áreas padrão, no mesmo nível de Conteúdo/Marketing (paralelo, sem bloquear).
+- Campo no detalhe: "Previsão de QAS (DEV → Curadoria)" + "Apresentação da implementação".
 
-| Capacidade | Visitante | Área logada | Admin |
-|---|---|---|---|
-| Ver calendário | ✅ | ✅ | ✅ |
-| Sidebar | ❌ | ✅ | ✅ |
-| Atualizar ações da própria área | ❌ | ✅ | ✅ |
-| Criar obrigação / evento | ❌ | ❌ | ✅ |
-| Gerir templates, botões, config, usuários | ❌ | ❌ | ✅ |
+## 12. Permissões consolidadas
+- **Visitante**: vê calendário + detalhe (read-only). Sem atalhos, sem botões de criação.
+- **Usuário logado**: tudo do visitante + atalhos rápidos + cadastro + painel da sua área.
+- **ADMIN**: tudo + modo edição do módulo + gestão de usuários + atalhos + configurações.
 
-## Ordem de execução
+## 13. Auto-teste antes de fechar
+Roteiro executado via Playwright headless:
+- Abrir home (pública e logada), conferir ausência de métricas na home.
+- Métricas visíveis em "Minha Área".
+- Clique em evento e obrigação → detalhe abre.
+- Detalhe mostra ações planejadas.
+- Painel de área: marcar "sem ação", adicionar ação com/sem data, toggle "exibir no card".
+- Atalhos visíveis para ADMIN e logado, ocultos sem login.
+- ADMIN cria/edita/reordena atalho; cria item via atalho.
+- Cadastro padrão permite remover área/ação.
+- Recorrência com dia útil.
+- Conflitos comparativos.
+- Login sem exemplos; ADMIN/ADMIN funciona; troca de senha disponível.
+- Modo edição ADMIN: criar/editar/reordenar área e ação.
 
-Bloco 0 → 1 → 2 → 3 → 4. Cada bloco entrega rotas e telas funcionais, então mesmo que algo precise de ajuste no fim, o calendário não fica quebrado no meio do caminho.
+## Detalhes técnicos
+- Alterações em `src/lib/domain.ts` (tipos), `src/lib/store.tsx` (estado/config), `src/components/ImpactDetailDrawer.tsx`, novo `src/components/AreaActionsPanel.tsx`, `src/components/admin/AdminAtalhosPage.tsx`, novo `src/components/admin/AdminModuloPage.tsx`, `AdminUsersPage` (alteração de senha), `NewObrigacaoDrawer`, `ConflitosDrawer`, `AppSidebar` (remove "Impactos"), `AtalhosBar` (regra de visibilidade), `MyAreaCards` (métricas).
+- Sem novas tabelas: persistência continua em `app_state` (JSON), o que mantém editabilidade total em runtime.
+- Sem novas dependências externas obrigatórias.
 
-## Pontos que preciso confirmar antes de codar
-
-1. **Primeiro admin**: como definir? Sugiro promover automaticamente, via migration, o primeiro usuário cujo e-mail bater com uma lista que você me passar agora (ex.: `seu@email.com`). Sem isso, ninguém entra na área admin depois que ligarmos as permissões reais.
-2. **Reset de senha**: ok gerar uma senha temporária mostrada uma vez ao admin (ele copia e envia), ou prefere disparar e-mail de "definir nova senha" para o usuário?
-3. **Cor primária configurável**: posso deixar o admin trocar a cor de destaque do calendário (roxo Keevo por padrão), ou trava no roxo?
-4. **Visão pública dos templates/conflitos**: visitante vê o badge de "via template" e o ícone de conflito, ou esses indicadores aparecem só para usuários logados?
-
-Responda só esses 4 pontos (ou diga "tanto faz, decide você") e eu já parto para a implementação dos 5 blocos de uma vez.
+Confirma para eu executar tudo em uma única entrega?
