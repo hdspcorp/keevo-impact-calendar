@@ -54,6 +54,7 @@ type Ctx = State & {
     patch: { observacoes?: string; responsavel?: string; prazo?: string }
   ) => void;
   toggleAcaoSelecionada: (obrigacaoId: string, acaoId: string) => void;
+  updateAcao: (obrigacaoId: string, acaoId: string, patch: Partial<Acao>) => void;
   addCustomAcao: (obrigacaoId: string, area: AreaSlug, nome: string) => void;
   removeAcao: (obrigacaoId: string, acaoId: string) => void;
   promoteCustomToTemplate: (obrigacaoId: string, acaoId: string) => void;
@@ -80,6 +81,8 @@ type Ctx = State & {
 
   // ---- Settings ----
   updateSettings: (patch: Partial<AppSettings>) => void;
+  /** Altera a senha do ADMIN/ADMIN (override em settings). Retorna true se autorizado. */
+  changeAdminPassword: (atual: string, nova: string) => boolean;
 
   // ---- Atalhos inteligentes ----
   addAtalho: (a: Omit<AtalhoEvento, "id" | "ordem" | "ativo">) => AtalhoEvento;
@@ -140,10 +143,26 @@ function pushHist(o: Obrigacao, entry: HistoricoEntry): Obrigacao {
 }
 
 function migrate(p: Partial<Persisted> | null | undefined): Persisted {
-  const obrigacoes = (p?.obrigacoes ?? SEED_OBRIGACOES).map((o) => ({
-    ...o,
-    requerValidacaoNexus: o.requerValidacaoNexus ?? true,
-  }));
+  const obrigacoes = (p?.obrigacoes ?? SEED_OBRIGACOES).map((o) => {
+    // Garante que toda área conhecida exista no objeto (inclui Curadoria
+    // em itens criados antes do seu cadastro).
+    const areas = { ...o.areas } as Record<AreaSlug, (typeof o.areas)[AreaSlug]>;
+    for (const a of AREAS) {
+      if (!areas[a.slug]) {
+        areas[a.slug] = {
+          area: a.slug,
+          status: "Aguardando avaliação",
+          observacoes: "",
+          responsavel: "",
+        };
+      }
+    }
+    return {
+      ...o,
+      areas,
+      requerValidacaoNexus: o.requerValidacaoNexus ?? true,
+    };
+  });
   return {
     obrigacoes,
     templates: p?.templates ?? DEFAULT_TEMPLATES,
@@ -262,6 +281,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     login(userOrEmail, pass) {
       const q = userOrEmail.trim();
       const qLower = q.toLowerCase();
+      // 0) Override de senha do ADMIN/ADMIN (alterada via "Alterar minha senha")
+      const adminOverride = state.settings.adminPasswordOverride;
+      if (q === "ADMIN" && adminOverride && pass === adminOverride) {
+        const session: Session = { kind: "admin", nome: "Administrador Master", email: "ADMIN" };
+        setState((s) => ({ ...s, session }));
+        return session;
+      }
       // 1) Usuários gerenciados (case-sensitive em email/senha — permite ADMIN/ADMIN)
       const managed = state.usuarios.find(
         (u) => u.ativo && (u.email === q || u.email.toLowerCase() === qLower) && u.pass === pass
@@ -269,11 +295,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const baseUser =
         managed ??
         MOCK_USERS.find(
-          (u) =>
-            (u.email === q ||
-              u.email.toLowerCase() === qLower ||
-              u.email.split("@")[0].toLowerCase() === qLower) &&
-            u.pass === pass
+          (u) => {
+            // Se ADMIN tem override ativo, a senha padrão ADMIN é invalidada
+            if (u.email === "ADMIN" && adminOverride) return false;
+            return (
+              (u.email === q ||
+                u.email.toLowerCase() === qLower ||
+                u.email.split("@")[0].toLowerCase() === qLower) &&
+              u.pass === pass
+            );
+          }
         );
       if (!baseUser) return null;
       const session: Session =
@@ -385,6 +416,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             nome,
             origem: "custom",
             selecionada: true,
+            exibirNoCard: true,
           };
           const nowIso = new Date().toISOString();
           let updated: Obrigacao = {
@@ -412,6 +444,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }),
       }));
     },
+
+    updateAcao(obrigacaoId, acaoId, patch) {
+      setState((s) => ({
+        ...s,
+        obrigacoes: s.obrigacoes.map((o) => {
+          if (o.id !== obrigacaoId) return o;
+          const acoes = o.acoes.map((a) => (a.id === acaoId ? { ...a, ...patch } : a));
+          return { ...o, acoes };
+        }),
+      }));
+    },
+
+
 
     removeAcao(obrigacaoId, acaoId) {
       setState((s) => ({
@@ -701,6 +746,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateSettings(patch) {
       setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
     },
+
+    changeAdminPassword(atual, nova) {
+      const s = state;
+      if (s.session?.kind !== "admin") return false;
+      const current = s.settings.adminPasswordOverride ?? "ADMIN";
+      if (atual !== current) return false;
+      const trimmed = nova.trim();
+      if (trimmed.length < 4) return false;
+      setState((st) => ({
+        ...st,
+        settings: { ...st.settings, adminPasswordOverride: trimmed },
+      }));
+      return true;
+    },
+
 
     // ---- Atalhos inteligentes ----
     addAtalho(a) {

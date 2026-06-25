@@ -160,10 +160,16 @@ export function ImpactDetailDrawer({
             )}
           </Section>
 
-          {/* Trilha de status (substitui "Situação atual") */}
+          {/* Prioridade: ações planejadas para o impacto */}
+          <Section title="Ações planejadas" icon={<CheckCircle2 className="h-3.5 w-3.5 text-primary" />}>
+            <AcoesPlanejadasResumo obrigacao={o} />
+          </Section>
+
+          {/* Trilha de status (secundária) */}
           <Section title="Trilha de status">
             <StatusTrail obrigacao={o} />
           </Section>
+
 
           {/* Situação por área */}
           <Section title="Situação por área">
@@ -583,44 +589,198 @@ function ActionItem({
   onRemove: () => void;
   onPromote: () => void;
 }) {
+  const { updateAcao } = useStore();
+  const [open, setOpen] = React.useState(false);
+  // Acessa o id da obrigação pai via closure — usamos o id armazenado em a.id contexto via parent.
+  // Para manter simplicidade, a função recebe a referência da obrigação via dataset não disponível aqui.
+  // Solução: subimos updates por evento na ActionItem usando o pai. Vamos passar handlers do pai abaixo.
   return (
     <li
       className={cn(
-        "group flex items-center gap-2 rounded-lg border px-2.5 py-1.5 transition-colors",
+        "group rounded-lg border px-2.5 py-1.5 transition-colors",
         a.selecionada ? "border-primary/30 bg-primary/[0.04]" : "border-border bg-background"
       )}
     >
-      <Checkbox
-        checked={a.selecionada}
-        disabled={!editable}
-        onCheckedChange={onToggle}
-      />
-      <span className={cn("flex-1 text-xs", a.selecionada && "text-foreground font-medium")}>
-        {a.nome}
-      </span>
-      {a.origem === "custom" && (
-        <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-medium text-accent">
-          custom
+      <div className="flex items-center gap-2">
+        <Checkbox
+          checked={a.selecionada}
+          disabled={!editable}
+          onCheckedChange={onToggle}
+        />
+        <span className={cn("flex-1 text-xs", a.selecionada && "text-foreground font-medium")}>
+          {a.nome}
         </span>
-      )}
-      {isAdmin && a.origem === "custom" && (
-        <button
-          onClick={onPromote}
-          title="Adicionar ao template da área"
-          className="text-muted-foreground opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
-        >
-          <Pin className="h-3.5 w-3.5" />
-        </button>
-      )}
-      {editable && a.origem === "custom" && (
-        <button
-          onClick={onRemove}
-          title="Remover"
-          className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {a.responsavel && (
+          <span className="hidden rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground sm:inline">
+            {a.responsavel}
+          </span>
+        )}
+        {a.exibirNoCard === false && (
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-600" title="Não aparece no card do calendário">
+            oculta
+          </span>
+        )}
+        {a.origem === "custom" && (
+          <span className="rounded-full bg-accent/15 px-1.5 py-0.5 text-[9px] font-medium text-accent">
+            custom
+          </span>
+        )}
+        {editable && (
+          <button
+            onClick={() => setOpen((v) => !v)}
+            title="Detalhes da ação"
+            className="text-muted-foreground transition-colors hover:text-primary"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {isAdmin && a.origem === "custom" && (
+          <button
+            onClick={onPromote}
+            title="Adicionar ao template da área"
+            className="text-muted-foreground opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+          >
+            <Pin className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {editable && a.origem === "custom" && (
+          <button
+            onClick={onRemove}
+            title="Remover"
+            className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {open && editable && (
+        <div className="mt-2 grid gap-2 border-t pt-2 sm:grid-cols-2">
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Responsável</label>
+            <Input
+              value={a.responsavel ?? ""}
+              onChange={(e) => updateAcao(findObrigacaoIdForAcao(a) ?? "", a.id, { responsavel: e.target.value })}
+              className="mt-1 h-7 text-xs"
+              placeholder="Quem executa"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Status</label>
+            <select
+              value={a.status ?? "A fazer"}
+              onChange={(e) => updateAcao(findObrigacaoIdForAcao(a) ?? "", a.id, { status: e.target.value as Acao["status"] })}
+              className="mt-1 h-7 w-full rounded-md border bg-background px-2 text-xs"
+            >
+              <option>A fazer</option>
+              <option>Em execução</option>
+              <option>Concluída</option>
+              <option>Bloqueada</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Início</label>
+            <Input
+              type="date"
+              value={a.dataInicio ?? ""}
+              onChange={(e) => updateAcao(findObrigacaoIdForAcao(a) ?? "", a.id, { dataInicio: e.target.value || undefined })}
+              className="mt-1 h-7 text-xs"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Fim</label>
+            <Input
+              type="date"
+              value={a.dataFim ?? ""}
+              onChange={(e) => updateAcao(findObrigacaoIdForAcao(a) ?? "", a.id, { dataFim: e.target.value || undefined })}
+              className="mt-1 h-7 text-xs"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Observação</label>
+            <Textarea
+              rows={2}
+              value={a.observacao ?? ""}
+              onChange={(e) => updateAcao(findObrigacaoIdForAcao(a) ?? "", a.id, { observacao: e.target.value })}
+              className="mt-1 text-xs"
+              placeholder="Detalhes, bloqueios, decisões..."
+            />
+          </div>
+          <label className="flex items-center gap-2 text-xs sm:col-span-2">
+            <Checkbox
+              checked={a.exibirNoCard !== false}
+              onCheckedChange={(v) =>
+                updateAcao(findObrigacaoIdForAcao(a) ?? "", a.id, { exibirNoCard: !!v })
+              }
+            />
+            <span>Exibir esta ação no card principal do calendário</span>
+          </label>
+        </div>
       )}
     </li>
+  );
+}
+
+// Helper para localizar a obrigação que contém uma ação (usa o store).
+function findObrigacaoIdForAcao(a: Acao): string | undefined {
+  // acessa o estado atual via hook leve
+  const obrigacoes = (useStoreSafe()?.obrigacoes ?? []) as Obrigacao[];
+  return obrigacoes.find((o) => o.acoes.some((x) => x.id === a.id))?.id;
+}
+function useStoreSafe() {
+  try {
+    return useStore();
+  } catch {
+    return null;
+  }
+}
+
+function AcoesPlanejadasResumo({ obrigacao }: { obrigacao: Obrigacao }) {
+  const ativas = obrigacao.acoes.filter((a) => a.selecionada);
+  if (ativas.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed bg-muted/30 px-3 py-5 text-center text-xs text-muted-foreground">
+        Nenhuma ação planejada ainda. Abra a área responsável abaixo para registrar ações.
+      </div>
+    );
+  }
+  // Agrupa por área
+  const porArea = new Map<AreaSlug, Acao[]>();
+  for (const a of ativas) {
+    const arr = porArea.get(a.area) ?? [];
+    arr.push(a);
+    porArea.set(a.area, arr);
+  }
+  return (
+    <div className="space-y-2">
+      {[...porArea.entries()].map(([area, lista]) => (
+        <div key={area} className="rounded-xl border bg-background/60 p-2.5">
+          <div className="mb-1.5 flex items-center justify-between text-[11px]">
+            <span className="font-semibold text-foreground">{areaNome(area)}</span>
+            <span className="text-muted-foreground">{lista.length} ação(ões)</span>
+          </div>
+          <ul className="space-y-1">
+            {lista.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate">
+                  <span className="font-medium text-foreground">{a.nome}</span>
+                  {a.responsavel && (
+                    <span className="text-muted-foreground"> · {a.responsavel}</span>
+                  )}
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+                  {a.dataFim && (
+                    <span>até {new Date(a.dataFim + "T00:00:00").toLocaleDateString("pt-BR")}</span>
+                  )}
+                  {a.status && a.status !== "A fazer" && (
+                    <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-primary">{a.status}</span>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }

@@ -59,8 +59,9 @@ export function ObrigacaoCard({
     (a) => a.status === "Concluída" || a.semAcaoNecessaria
   ).length;
 
-  // Ações marcadas como visíveis no card (selecionadas) — até 3 chips + contagem.
-  const acoesSel = o.acoes.filter((a) => a.selecionada);
+ // Ações marcadas como visíveis no card (selecionadas) — até 3 chips + contagem.
+ // Respeita o flag exibirNoCard (default true) para evitar poluir o card.
+ const acoesSel = o.acoes.filter((a) => a.selecionada && a.exibirNoCard !== false);
   const acoesVisiveis = acoesSel.slice(0, 3);
   const extras = acoesSel.length - acoesVisiveis.length;
 

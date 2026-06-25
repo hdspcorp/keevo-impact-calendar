@@ -1,5 +1,5 @@
 import * as React from "react";
-import { LogOut, ShieldCheck, User, Bell } from "lucide-react";
+import { LogOut, ShieldCheck, User, Bell, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -8,6 +8,7 @@ import { useStore } from "@/lib/store";
 import { areaNome } from "@/lib/domain";
 import { AreaLoginDialog } from "./AreaLoginDialog";
 import { KeevoLogo } from "./KeevoLogo";
+import { AdminChangePasswordDialog } from "./AdminChangePasswordDialog";
 
 export function Header({
   notificacoesCount = 0,
@@ -18,6 +19,7 @@ export function Header({
 }) {
   const { session, logout, settings } = useStore();
   const [loginOpen, setLoginOpen] = React.useState(false);
+  const [pwdOpen, setPwdOpen] = React.useState(false);
 
   const initials = React.useMemo(() => {
     if (!session) return "VC";
@@ -90,6 +92,17 @@ export function Header({
                   {initials}
                 </AvatarFallback>
               </Avatar>
+              {session.kind === "admin" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setPwdOpen(true)}
+                  className="text-muted-foreground hover:text-foreground"
+                  title="Alterar minha senha"
+                >
+                  <KeyRound className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -114,6 +127,7 @@ export function Header({
         </div>
       </div>
       <AreaLoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+      <AdminChangePasswordDialog open={pwdOpen} onOpenChange={setPwdOpen} />
     </header>
   );
 }

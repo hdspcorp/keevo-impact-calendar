@@ -1,19 +1,28 @@
 // Domain types & seed data for Calendário de Gestão de Impactos 2026
 
-export type AreaSlug = "nexus" | "desenvolvimento" | "conteudos" | "marketing" | "operacoes";
+export type AreaSlug =
+  | "nexus"
+  | "desenvolvimento"
+  | "conteudos"
+  | "curadoria"
+  | "marketing"
+  | "operacoes";
 
 export const AREAS: { slug: AreaSlug; nome: string; cor: string }[] = [
   { slug: "nexus", nome: "NEXUS", cor: "oklch(0.46 0.22 295)" },
   { slug: "desenvolvimento", nome: "Desenvolvimento", cor: "oklch(0.55 0.15 230)" },
   { slug: "conteudos", nome: "Conteúdos", cor: "oklch(0.6 0.16 160)" },
+  { slug: "curadoria", nome: "Curadoria", cor: "oklch(0.62 0.16 200)" },
   { slug: "marketing", nome: "Marketing", cor: "oklch(0.7 0.18 50)" },
   { slug: "operacoes", nome: "Operações / Suporte", cor: "oklch(0.55 0.14 0)" },
 ];
 
+// Curadoria entra em paralelo com Conteúdos/Marketing — não bloqueia o fluxo.
 export const AREA_ORDEM: AreaSlug[] = [
   "nexus",
   "desenvolvimento",
   "conteudos",
+  "curadoria",
   "marketing",
   "operacoes",
 ];
@@ -63,12 +72,22 @@ export type ChecklistTemplate = {
   somenteAcaoNecessaria: boolean;
 };
 
+export type AcaoStatus = "A fazer" | "Em execução" | "Concluída" | "Bloqueada";
+
 export type Acao = {
   id: string;
   area: AreaSlug;
   nome: string;
   origem: "template" | "custom";
   selecionada: boolean;
+  // Detalhamento operacional (opcional)
+  responsavel?: string;
+  observacao?: string;
+  dataInicio?: string; // YYYY-MM-DD
+  dataFim?: string; // YYYY-MM-DD
+  status?: AcaoStatus;
+  /** Quando false, a ação não aparece como chip no card do calendário. Default: true. */
+  exibirNoCard?: boolean;
 };
 
 export type AreaStatus = {
@@ -202,6 +221,13 @@ export const DEFAULT_TEMPLATES: ChecklistTemplate[] = [
     "Validar linguagem",
     "Publicar material",
     "Informar data de liberação do conteúdo",
+  ]),
+  ...T("curadoria", [
+    "Receber previsão de QAS do Desenvolvimento",
+    "Validar implementação apresentada pelo Dev",
+    "Preparar treinamento Kiara",
+    "Aprovar liberação para clientes",
+    "Registrar conhecimento na base",
   ]),
   ...T("marketing", [
     "Planejar divulgação",
@@ -479,6 +505,7 @@ export const MOCK_USERS: MockUser[] = [
   { email: "nexus@keevo.com", pass: "nexus", nome: "Ana (NEXUS)", kind: "area", area: "nexus" },
   { email: "desenvolvimento@keevo.com", pass: "desenvolvimento", nome: "Carlos (Desenvolvimento)", kind: "area", area: "desenvolvimento" },
   { email: "conteudos@keevo.com", pass: "conteudos", nome: "Bruno (Conteúdos)", kind: "area", area: "conteudos" },
+  { email: "curadoria@keevo.com", pass: "curadoria", nome: "Kiara (Curadoria)", kind: "area", area: "curadoria" },
   { email: "marketing@keevo.com", pass: "marketing", nome: "Diana (Marketing)", kind: "area", area: "marketing" },
   { email: "operacoes@keevo.com", pass: "operacoes", nome: "Eduardo (Operações)", kind: "area", area: "operacoes" },
 ];
@@ -501,6 +528,8 @@ export type AppSettings = {
   subtitulo: string;
   logoDataUrl: string | null; // base64; null = usa KeevoLogo
   corPrimaria: string; // HSL string, ex.: "262 83% 58%"
+  /** Senha alterada pelo ADMIN/ADMIN. Quando definida, substitui a senha "ADMIN" padrão. */
+  adminPasswordOverride?: string;
 };
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {

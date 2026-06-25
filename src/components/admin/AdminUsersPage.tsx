@@ -170,10 +170,10 @@ export function AdminUsersPage() {
       </div>
 
       <p className="text-[11px] text-muted-foreground">
-        Observação: os usuários iniciais (<code>ADMIN/ADMIN</code> e contas demo de cada área)
-        continuam disponíveis para login mesmo que esta lista esteja vazia. Os usuários cadastrados
-        aqui são compartilhados entre todos que abrirem o calendário.
+        Os usuários cadastrados aqui são compartilhados entre todos que abrirem o calendário.
+        A senha do administrador pode ser alterada no menu superior (ícone de chave).
       </p>
+
 
       <UsuarioFormDialog
         open={creating || !!editing}
