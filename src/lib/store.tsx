@@ -402,6 +402,54 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             nome,
             origem: "custom",
             selecionada: true,
+            exibirNoCard: true,
+          };
+          const nowIso = new Date().toISOString();
+          let updated: Obrigacao = {
+            ...o,
+            acoes: [...o.acoes, nova],
+            areas: {
+              ...o.areas,
+              [area]: {
+                ...o.areas[area],
+                ultimaAtualizacao: nowIso,
+                atualizadoPor: s.session?.nome ?? "Sistema",
+                status:
+                  o.areas[area].status === "Aguardando avaliação" ||
+                  o.areas[area].status === "Reaberta"
+                    ? "Em análise"
+                    : o.areas[area].status,
+              },
+            },
+          };
+          updated = pushHist(
+            updated,
+            makeHist(area, s.session, "acao-custom-add", `Ação customizada adicionada: "${nome}"`)
+          );
+          return updated;
+        }),
+      }));
+    },
+
+    updateAcao(obrigacaoId, acaoId, patch) {
+      setState((s) => ({
+        ...s,
+        obrigacoes: s.obrigacoes.map((o) => {
+          if (o.id !== obrigacaoId) return o;
+          const acoes = o.acoes.map((a) => (a.id === acaoId ? { ...a, ...patch } : a));
+          return { ...o, acoes };
+        }),
+      }));
+    },
+
+        obrigacoes: s.obrigacoes.map((o) => {
+          if (o.id !== obrigacaoId) return o;
+          const nova: Acao = {
+            id: `ac-custom-${Date.now()}`,
+            area,
+            nome,
+            origem: "custom",
+            selecionada: true,
           };
           const nowIso = new Date().toISOString();
           let updated: Obrigacao = {
