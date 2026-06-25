@@ -747,6 +747,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setState((s) => ({ ...s, settings: { ...s.settings, ...patch } }));
     },
 
+    changeAdminPassword(atual, nova) {
+      const s = state;
+      if (s.session?.kind !== "admin") return false;
+      const current = s.settings.adminPasswordOverride ?? "ADMIN";
+      if (atual !== current) return false;
+      const trimmed = nova.trim();
+      if (trimmed.length < 4) return false;
+      setState((st) => ({
+        ...st,
+        settings: { ...st.settings, adminPasswordOverride: trimmed },
+      }));
+      return true;
+    },
+
+
     // ---- Atalhos inteligentes ----
     addAtalho(a) {
       const novo: AtalhoEvento = {
