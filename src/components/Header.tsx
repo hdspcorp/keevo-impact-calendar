@@ -19,6 +19,7 @@ export function Header({
 }) {
   const { session, logout, settings } = useStore();
   const [loginOpen, setLoginOpen] = React.useState(false);
+  const [pwdOpen, setPwdOpen] = React.useState(false);
 
   const initials = React.useMemo(() => {
     if (!session) return "VC";
