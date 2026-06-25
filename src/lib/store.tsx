@@ -81,6 +81,8 @@ type Ctx = State & {
 
   // ---- Settings ----
   updateSettings: (patch: Partial<AppSettings>) => void;
+  /** Altera a senha do ADMIN/ADMIN (override em settings). Retorna true se autorizado. */
+  changeAdminPassword: (atual: string, nova: string) => boolean;
 
   // ---- Atalhos inteligentes ----
   addAtalho: (a: Omit<AtalhoEvento, "id" | "ordem" | "ativo">) => AtalhoEvento;
