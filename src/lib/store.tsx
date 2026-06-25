@@ -140,10 +140,27 @@ function pushHist(o: Obrigacao, entry: HistoricoEntry): Obrigacao {
 }
 
 function migrate(p: Partial<Persisted> | null | undefined): Persisted {
-  const obrigacoes = (p?.obrigacoes ?? SEED_OBRIGACOES).map((o) => ({
-    ...o,
-    requerValidacaoNexus: o.requerValidacaoNexus ?? true,
-  }));
+  const obrigacoes = (p?.obrigacoes ?? SEED_OBRIGACOES).map((o) => {
+    // Garante que toda área conhecida exista no objeto (inclui Curadoria
+    // em itens criados antes do seu cadastro).
+    const areas = { ...o.areas } as Record<string, unknown> as typeof o.areas;
+    for (const a of AREAS) {
+      if (!areas[a.slug]) {
+        // @ts-expect-error dynamic key bootstrap
+        areas[a.slug] = {
+          area: a.slug,
+          status: "Aguardando avaliação",
+          observacoes: "",
+          responsavel: "",
+        };
+      }
+    }
+    return {
+      ...o,
+      areas,
+      requerValidacaoNexus: o.requerValidacaoNexus ?? true,
+    };
+  });
   return {
     obrigacoes,
     templates: p?.templates ?? DEFAULT_TEMPLATES,
