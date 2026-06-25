@@ -54,6 +54,7 @@ type Ctx = State & {
     patch: { observacoes?: string; responsavel?: string; prazo?: string }
   ) => void;
   toggleAcaoSelecionada: (obrigacaoId: string, acaoId: string) => void;
+  updateAcao: (obrigacaoId: string, acaoId: string, patch: Partial<Acao>) => void;
   addCustomAcao: (obrigacaoId: string, area: AreaSlug, nome: string) => void;
   removeAcao: (obrigacaoId: string, acaoId: string) => void;
   promoteCustomToTemplate: (obrigacaoId: string, acaoId: string) => void;
